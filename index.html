@@ -1181,9 +1181,7 @@ function exportPDF(mode) {
 
 /* ---------- RESET ---------- */
 function confirmReset() {
-  if(!confirm('⚠️ ATTENTION: Cette action effacera TOUTES les donnees de l'application. Cette operation est irreversible.
-
-Confirmer la reinitialisation ?')) return;
+  if(!confirm('⚠️ ATTENTION: Cette action effacera TOUTES les donnees de l\'application. Cette operation est irreversible.\n\nConfirmer la reinitialisation ?')) return;
   if(!confirm('Derniere confirmation: Voulez-vous vraiment tout supprimer ?')) return;
   state={tasks:[],completions:{},sleepData:{},streaks:{},archives:{},selectedDate:formatDate(new Date()),currentMonth:new Date(),currentTab:0,darkMode:state.darkMode,tunnelStep:0,tunnelData:{},charts:{}};
   localStorage.removeItem('safwann_os_state');
