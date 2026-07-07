@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Productivité Vétérinaire & Athlète</title>
+  <title>Studio Productivité Professionnel</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
@@ -29,16 +27,23 @@
   </script>
   <style>
     :root { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; }
-    body { background: var(--bg); color: var(--text); transition: background 0.3s, color 0.3s; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.25rem; }
     
-    /* Boutons de sous-séances nommées (PPL) */
-    .subcase-btn { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-align: center; }
-    .subcase-btn.done { border-color: transparent; color: #fff; }
-    .subcase-btn.done.yellowTask { background: #eab308; color: #0f172a; }
-    .subcase-btn.done.orangeTask { background: #f97316; }
+    /* Boutons de sous-séances et sous-tâches */
+    .subcase-btn { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-align: center; background: #0f172a; }
     
-    .tab-btn { padding: 0.6rem 1.2rem; border-radius: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: #1e293b; border: 1px solid #334155; }
+    /* Couleurs vives quand validé sans rature */
+    .subcase-btn.active-green { background: #22c55e !important; color: #000 !important; border-color: #22c55e !important; }
+    .subcase-btn.active-yellow { background: #eab308 !important; color: #000 !important; border-color: #eab308 !important; }
+    .subcase-btn.active-orange { background: #f97316 !important; color: #fff !important; border-color: #f97316 !important; }
+    .subcase-btn.active-blue { background: #3b82f6 !important; color: #fff !important; border-color: #3b82f6 !important; }
+    
+    /* État vif pour ligne complète */
+    .task-vif-green { background: #22c55e/20 !important; border-left: 5px solid #22c55e !important; }
+    .task-vif-blue { background: #3b82f6/20 !important; border-left: 5px solid #3b82f6 !important; }
+
+    .tab-btn { padding: 0.6rem 1.2rem; border-radius: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: #1e293b; border: 1px solid #334155; color: var(--muted); }
     .tab-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
     
     .btn-primary { background: #3b82f6; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
@@ -46,16 +51,16 @@
     
     input, select { background: #0f172a; color: var(--text); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 0.75rem; outline: none; }
     
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
     .modal-overlay.open { display: flex; }
-    .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+    .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; }
     
-    .task-item { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border); background: #1e293b; margin-bottom: 0.5rem; }
+    .task-item { padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border); background: #1e293b; margin-bottom: 0.5rem; transition: all 0.2s; }
     
-    /* Styles Calendrier Agenda Widget */
+    /* Calendrier Widget */
     .widget-calendar { background: #151f32; border: 1px solid #24344d; border-radius: 1.5rem; padding: 1.5rem; }
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; text-align: center; }
-    .calendar-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
+    .calendar-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
     .calendar-cell:hover { background: #24344d; }
     .calendar-cell.active { background: #e15b34; color: white; }
     .calendar-cell.muted { color: #475569; }
@@ -64,15 +69,13 @@
   </style>
 
   <script>
-    // Variables globales
     let tasks = [];
     let sleepData = [];
     let napData = [];
-    let taskHistory = {}; // Sauvegarde l'état validé par jour complet
-    let chartInstances = {};
+    let taskHistory = {};
     
-    let currentCalDate = new Date(); // Date de navigation du calendrier
-    let selectedDate = getTodayStr(); // Jour actif pour l'affichage
+    let currentCalDate = new Date(); 
+    let selectedDate = getTodayStr(); 
 
     function getTodayStr() { return new Date().toISOString().split('T')[0]; }
     
@@ -80,53 +83,41 @@
       return new Date(dateStr + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Gestion de la navigation d'onglets
     function switchTab(tab) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
       ['tasks','dashboard','archives'].forEach(t => document.getElementById('tab-' + t)?.classList.add('hidden'));
       document.getElementById('tab-' + tab)?.classList.remove('hidden');
-      
-      if (tab === 'dashboard') setTimeout(initCharts, 50);
       if (tab === 'archives') renderArchives();
     }
 
-    // --- LOGIQUE DU CALENDRIER STYLE WIDGET ---
+    // --- CALENDRIER AGENDA ---
     function renderWidgetCalendar() {
       const year = currentCalDate.getFullYear();
       const month = currentCalDate.getMonth();
-      
-      // Titre Mois Année
-      const monthLabel = new Date(year, month).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
-      document.getElementById('calendarMonthLabel').textContent = monthLabel;
+      document.getElementById('calendarMonthLabel').textContent = new Date(year, month).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
 
       const grid = document.getElementById('calendarGridCells');
       if (!grid) return;
       grid.innerHTML = '';
 
-      // Premier jour du mois et nombre de jours
-      const firstDayIdx = (new Date(year, month, 1).getDay() + 6) % 7; // Ajustement Lundi
+      const firstDayIdx = (new Date(year, month, 1).getDay() + 6) % 7; 
       const totalDays = new Date(year, month + 1, 0).getDate();
       const prevTotalDays = new Date(year, month, 0).getDate();
 
-      // Jours du mois précédent (grisés)
       for (let i = firstDayIdx - 1; i >= 0; i--) {
-        let dNum = prevTotalDays - i;
         let cell = document.createElement('div');
         cell.className = 'calendar-cell muted';
-        cell.textContent = dNum;
+        cell.textContent = prevTotalDays - i;
         grid.appendChild(cell);
       }
 
-      // Jours du mois en cours
       for (let d = 1; d <= totalDays; d++) {
         let cell = document.createElement('div');
         let currentString = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        
         cell.className = 'calendar-cell';
         if (currentString === selectedDate) cell.classList.add('active');
         cell.textContent = d;
-        
         cell.onclick = () => {
           selectedDate = currentString;
           renderWidgetCalendar();
@@ -134,7 +125,6 @@
         };
         grid.appendChild(cell);
       }
-      
       document.getElementById('selectedDayTitle').textContent = formatDateFr(selectedDate);
     }
 
@@ -143,159 +133,251 @@
       renderWidgetCalendar();
     }
 
-    // --- LOGIQUE DES TÂCHES ---
+    // --- ENGINE DE RENDU DES TÂCHES ---
     function renderTasks() {
       const container = document.getElementById('taskList');
       if (!container) return;
       container.innerHTML = '';
 
-      // Si on regarde un jour passé sauvegardé dans l'historique automatique
-      if (selectedDate < getTodayStr() && taskHistory[selectedDate]) {
-        renderHistoryDay(container, taskHistory[selectedDate]);
-        return;
-      }
+      const todayStr = getTodayStr();
 
-      // Filtrage intelligent selon les règles de récurrence
-      const todayTasks = tasks.filter(t => {
+      // Filtrage intelligent selon les exigences strictes
+      const filtered = tasks.filter(t => {
+        // Tâche Bleue (Flottante) : Reste affichée partout tant qu'elle n'est pas complétée, se fige au jour validé
+        if (t.type === 'blue') {
+          if (t.doneDate) return t.doneDate === selectedDate; // Figée au jour de complétion
+          return selectedDate >= t.createdAt; // Visible du jour de création jusqu'au futur tant que non faite
+        }
+        // Tâche Rouge (Unique/RDV)
         if (t.type === 'red') return t.date === selectedDate;
-        if (t.type === 'green') return true;
+        // Tâche Verte (Quotidienne)
+        if (t.type === 'green') return selectedDate >= t.createdAt;
+        // Tâches Hebdo / Mensuelles (Sport, Pratiques)
         if (t.type === 'yellow' || t.type === 'orange') {
-          // Si restriction de jour (ex: Jeudi pour le jeûne)
           if (t.specificDay && t.specificDay !== 'all') {
             const dayName = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
             if (dayName !== t.specificDay) return false;
           }
-          return true;
+          return selectedDate >= t.createdAt;
         }
         return true;
       });
 
-      if (todayTasks.length === 0) {
-        container.innerHTML = `<div class="text-center text-slate-400 p-4">Aucun programme planifié pour ce jour.</div>`;
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center text-slate-400 p-4">Aucun programme ou tâche pour ce jour.</div>`;
         return;
       }
 
-      todayTasks.forEach(task => {
+      filtered.forEach(task => {
         const el = document.createElement('div');
-        el.className = 'task-item flex flex-col items-start gap-3';
-        el.style.borderLeft = '4px solid ' + TYPE_COLORS[task.type];
+        el.className = 'task-item flex flex-col gap-3';
+        
+        // Couleur de bordure par défaut
+        el.style.borderLeft = '5px solid ' + TYPE_COLORS[task.type];
 
-        // Construction des blocs de quotas nommés (Ex: Push / Pull / Legs)
-        let quotaBlockHtml = '';
-        if (task.quotaArr && task.quotaArr.length > 0) {
-          quotaBlockHtml = '<div class="flex gap-2 flex-wrap mt-1">';
-          task.quotaArr.forEach((q, idx) => {
-            // Vérification si cette sous-séance précise est cochée pour la période/jour en cours
-            const isDone = q.doneDates && q.doneDates.includes(selectedDate);
-            const activeCls = isDone ? `done ${TYPE_CLASSES[task.type]}` : '';
-            quotaBlockHtml += `
-              <div class="subcase-btn ${activeCls}" onclick="toggleQuotaCell('${task.id}', ${idx})">
-                ${q.name || `Séc. ${idx+1}`} ${isDone ? '✅' : ''}
+        let contentHtml = '';
+
+        // CAS 1 : Tâche Verte (Quotidienne classique)
+        if (task.type === 'green') {
+          const isDone = task.doneDates && task.doneDates.includes(selectedDate);
+          if (isDone) el.classList.add('bg-emerald-500/10', 'border-emerald-500');
+          
+          contentHtml = `
+            <div class="flex justify-between items-center w-full">
+              <span class="font-bold text-lg text-slate-100">${task.name}</span>
+              <div class="flex gap-2">
+                <button class="subcase-btn ${isDone ? 'active-green' : ''}" onclick="toggleDailyTask('${task.id}')">
+                  ${isDone ? '✨ Complétée' : '✓ Valider'}
+                </button>
+                <button class="text-slate-500 hover:text-red-400 px-1" onclick="deleteTask('${task.id}')">🗑️</button>
               </div>
-            `;
-          });
-          quotaBlockHtml += '</div>';
+            </div>
+          `;
         }
 
-        el.innerHTML = `
-          <div class="w-full flex justify-between items-center">
-            <div>
-              <span class="font-bold text-lg">${task.name}</span>
-              <span class="badge ml-2 ${task.type === 'yellow' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-orange-500/20 text-orange-400'}">
-                ${TYPE_LABELS[task.type]}
-              </span>
+        // CAS 2 : Tâche Bleue (Flottante définitive)
+        else if (task.type === 'blue') {
+          const isDone = !!task.doneDate;
+          if (isDone) el.classList.add('bg-blue-600/10', 'border-blue-500');
+
+          contentHtml = `
+            <div class="flex justify-between items-center w-full">
+              <div>
+                <span class="font-bold text-lg text-slate-100">${task.name}</span>
+                <span class="text-xs block text-blue-400 font-medium">${isDone ? `Accomplie le ${task.doneDate}` : '📌 Tâche flottante active'}</span>
+              </div>
+              <div class="flex gap-2">
+                <button class="subcase-btn ${isDone ? 'active-blue' : ''}" ${isDone ? 'disabled' : ''} onclick="toggleBlueTask('${task.id}')">
+                  ${isDone ? '🔒 Archivée' : '✓ Remplir'}
+                </button>
+                <button class="text-slate-500 hover:text-red-400 px-1" onclick="deleteTask('${task.id}')">🗑️</button>
+              </div>
             </div>
-            <button class="text-slate-500 hover:text-red-400" onclick="deleteTask('${task.id}')">🗑️</button>
-          </div>
-          ${quotaBlockHtml}
-        `;
+          `;
+        }
+
+        // CAS 3 : Tâches à Composants (Cycles Sportifs Hebdo, Prières Composées)
+        else {
+          let itemsHtml = '<div class="flex gap-2 flex-wrap mt-1">';
+          
+          if (task.quotaArr && task.quotaArr.length > 0) {
+            task.quotaArr.forEach((q, idx) => {
+              // Vérification de validation
+              const isChecked = q.doneDates && q.doneDates.includes(selectedDate);
+              let cls = '';
+              if (isChecked) {
+                if (task.type === 'yellow') cls = 'active-yellow';
+                if (task.type === 'orange') cls = 'active-orange';
+                if (task.type === 'green') cls = 'active-green';
+              }
+
+              itemsHtml += `
+                <button class="subcase-btn ${cls}" onclick="toggleSubItem('${task.id}', ${idx})">
+                  ${q.name} ${isChecked ? '⚡' : ''}
+                </button>
+              `;
+            });
+          }
+          itemsHtml += '</div>';
+
+          contentHtml = `
+            <div class="flex justify-between items-center w-full">
+              <div>
+                <span class="font-bold text-lg text-slate-100">${task.name}</span>
+                <span class="text-xs block text-slate-400">
+                  ${task.isContinuous ? '🔄 Cycle Continu Infini' : '⚙️ Objectifs du bloc'}
+                </span>
+              </div>
+              <button class="text-slate-500 hover:text-red-400" onclick="deleteTask('${task.id}')">🗑️</button>
+            </div>
+            ${itemsHtml}
+          `;
+        }
+
+        el.innerHTML = contentHtml;
         container.appendChild(el);
       });
     }
 
-    function toggleQuotaCell(taskId, idx) {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task || !task.quotaArr) return;
-      
-      if (!task.quotaArr[idx].doneDates) task.quotaArr[idx].doneDates = [];
-      
-      const dateIdx = task.quotaArr[idx].doneDates.indexOf(selectedDate);
-      if (dateIdx > -1) {
-        task.quotaArr[idx].doneDates.splice(dateIdx, 1); // Décocher
-      } else {
-        task.quotaArr[idx].doneDates.push(selectedDate); // Cocher
-      }
+    // --- ACTIONS DE VALIDATION ---
+    function toggleDailyTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+      if (!task.doneDates) task.doneDates = [];
 
-      // Enregistrement auto dans l'historique global pour le suivi
+      const idx = task.doneDates.indexOf(selectedDate);
+      if (idx > -1) task.doneDates.splice(idx, 1);
+      else task.doneDates.push(selectedDate);
+
       saveHistoryState();
       saveLocalStorage();
       renderTasks();
     }
 
-    function renderHistoryDay(container, dayHist) {
-      container.innerHTML = '<h4 class="text-xs font-bold uppercase text-slate-400 mb-2">Historique enregistré :</h4>';
-      Object.values(dayHist).forEach(h => {
-        container.innerHTML += `
-          <div class="task-item opacity-60" style="border-left:4px solid ${TYPE_COLORS[h.type]}">
-            <div>
-              <p class="font-semibold line-through text-slate-300">${h.name}</p>
-              <span class="text-xs text-slate-400">Complété ce jour-là</span>
-            </div>
-          </div>
-        `;
-      });
+    function toggleBlueTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (!task || task.doneDate) return; 
+      
+      task.doneDate = selectedDate; // Se fige définitivement à la date du clic
+      saveHistoryState();
+      saveLocalStorage();
+      renderTasks();
     }
 
-    function saveHistoryState() {
-      if (!taskHistory[selectedDate]) taskHistory[selectedDate] = {};
-      tasks.forEach(t => {
-        taskHistory[selectedDate][t.id] = { name: t.name, type: t.type, timestamp: Date.now() };
-      });
-      localStorage.setItem('prod_history', JSON.stringify(taskHistory));
+    function toggleSubItem(taskId, itemIdx) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.quotaArr) return;
+
+      let subItem = task.quotaArr[itemIdx];
+      if (!subItem.doneDates) subItem.doneDates = [];
+
+      const dIdx = subItem.doneDates.indexOf(selectedDate);
+      if (dIdx > -1) {
+        subItem.doneDates.splice(dIdx, 1);
+      } else {
+        subItem.doneDates.push(selectedDate);
+      }
+
+      // RÈGLE UNIQUE 1 : Gestion du Cycle Sportif Continu Infini
+      if (task.isContinuous && itemIdx === task.quotaArr.length - 1) {
+        alert("🔄 Cycle terminé ! Réinitialisation automatique du cycle pour la prochaine séance.");
+        task.quotaArr.forEach(q => q.doneDates = []);
+      }
+
+      saveHistoryState();
+      saveLocalStorage();
+      renderTasks();
     }
 
-    // Gère l'affichage dynamique des champs dans le modal de création
+    // --- SAUVEGARDE ET TUNNEL DE QUESTIONS ---
     function onTypeChange() {
       const type = document.getElementById('taskType').value;
-      const isQuotaType = ['yellow', 'orange'].includes(type);
-      document.getElementById('quotaSetupSection').classList.toggle('hidden', !isQuotaType);
-      document.getElementById('muslimDaySection').classList.toggle('hidden', type !== 'orange');
+      
+      // Gestion des affichages du tunnel de configuration
+      document.getElementById('quotaSection').classList.toggle('hidden', type === 'blue' || type === 'red' || type === 'green');
+      document.getElementById('continuousSection').classList.toggle('hidden', type !== 'yellow');
+      document.getElementById('composedTaskSection').classList.toggle('hidden', type !== 'green');
     }
 
     function generateQuotaInputs() {
-      const num = parseInt(document.getElementById('taskQuotaValue').value) || 0;
-      const container = document.getElementById('quotaNamesContainer');
+      const num = parseInt(document.getElementById('quotaValue').value) || 0;
+      const container = document.getElementById('quotaNamesFields');
       container.innerHTML = '';
       if (num <= 0) return;
 
-      container.innerHTML = '<label class="text-xs font-bold block text-slate-400 mb-1">Nommez vos séances/objectifs du cycle :</label>';
       for (let i = 0; i < num; i++) {
-        let placeholder = i === 0 ? "Ex: Push" : i === 1 ? "Ex: Pull" : i === 2 ? "Ex: Legs" : `Séance ${i+1}`;
-        container.innerHTML += `<input type="text" id="quotaName_${i}" class="w-full mb-2 text-sm" placeholder="${placeholder}" />`;
+        let label = i === 0 ? "Nom de la S1 (ex: Push)" : i === 1 ? "Nom de la S2 (ex: Pull)" : i === 2 ? "Nom de la S3 (ex: Legs)" : `Séance ${i+1}`;
+        container.innerHTML += `
+          <div class="mt-2">
+            <label class="text-xs text-slate-400 block">${label}</label>
+            <input type="text" id="subName_${i}" class="w-full text-xs mt-1" placeholder="Ex: Push Athlète" />
+          </div>
+        `;
       }
     }
 
     function saveTask() {
       const name = document.getElementById('taskName').value.trim();
       const type = document.getElementById('taskType').value;
-      const quotaNum = parseInt(document.getElementById('taskQuotaValue').value) || 0;
-      const specificDay = document.getElementById('taskSpecificDay').value;
-
       if (!name) return;
 
       let quotaArr = [];
-      if (['yellow', 'orange'].includes(type) && quotaNum > 0) {
-        for (let i = 0; i < quotaNum; i++) {
-          const qName = document.getElementById(`quotaName_${i}`)?.value.trim() || `Séance ${i+1}`;
-          quotaArr.push({ name: qName, doneDates: [] });
+      let isContinuous = false;
+
+      // 1. Gestion des tâches composées quotidiennes (Ex: Les 5 prières)
+      if (type === 'green' && document.getElementById('isComposed').value === 'yes') {
+        const customNodes = document.getElementById('composedNodes').value.split(',').map(s => s.trim());
+        customNodes.forEach(node => {
+          if(node) quotaArr.push({ name: node, doneDates: [] });
+        });
+      }
+
+      // 2. Gestion des cycles de sport complexes (Hebdo/Mensuels)
+      if ((type === 'yellow' || type === 'orange')) {
+        const num = parseInt(document.getElementById('quotaValue').value) || 0;
+        for (let i = 0; i < num; i++) {
+          const sName = document.getElementById(`subName_${i}`)?.value.trim() || `Séance ${i+1}`;
+          quotaArr.push({ name: sName, doneDates: [] });
+        }
+        if (type === 'yellow') {
+          isContinuous = (document.getElementById('isContinuousSelect').value === 'yes');
         }
       }
 
-      const newTask = { id: 'task_' + Date.now(), name, type, quotaArr, specificDay, createdAt: getTodayStr() };
+      const newTask = {
+        id: 'task_' + Date.now(),
+        name,
+        type,
+        quotaArr,
+        isContinuous,
+        createdAt: getTodayStr(),
+        doneDates: [], // Pour le vert standard
+        doneDate: null // Pour le bleu flottant
+      };
+
       tasks.push(newTask);
-      
       saveLocalStorage();
-      closeTaskModal();
+      closeModal();
       renderTasks();
     }
 
@@ -305,125 +387,66 @@
       renderTasks();
     }
 
-    // --- SÉCURITÉ ANTI-DOUBLONS MÉTRIQUES ---
-    function addSleep() {
-      const bed = document.getElementById('bedTime').value;
-      const wake = document.getElementById('wakeTime').value;
-      if (!bed || !wake) return;
-
-      // Écrase l'ancien enregistrement du jour même pour éviter tout doublon
-      sleepData = sleepData.filter(s => s.date !== selectedDate);
-      
-      let b = bed.split(':').map(Number), w = wake.split(':').map(Number);
-      let duration = ((w[0]*60+w[1]) - (b[0]*60+b[1]));
-      if (duration < 0) duration += 1440;
-
-      sleepData.push({ date: selectedDate, bed, wake, duration: duration / 60 });
-      localStorage.setItem('prod_sleep', JSON.stringify(sleepData));
-      initCharts();
-    }
-
-    function addNap() {
-      const start = document.getElementById('napStart').value;
-      const duration = parseInt(document.getElementById('napDuration').value);
-      if (!start || !duration) return;
-
-      napData = napData.filter(n => !(n.date === selectedDate));
-      napData.push({ date: selectedDate, start, duration });
-      localStorage.setItem('prod_naps', JSON.stringify(napData));
-      initCharts();
-    }
-
-    function removeMetric(type, index) {
-      if (type === 'sleep') sleepData.splice(index, 1);
-      if (type === 'nap') napData.splice(index, 1);
-      localStorage.setItem('prod_' + type, JSON.stringify(type === 'sleep' ? sleepData : napData));
-      initCharts();
+    function saveHistoryState() {
+      if (!taskHistory[selectedDate]) taskHistory[selectedDate] = [];
+      localStorage.setItem('prod_history', JSON.stringify(taskHistory));
     }
 
     function renderArchives() {
       const container = document.getElementById('archiveContent');
       if (!container) return;
-      container.innerHTML = '<h4 class="font-bold mb-2">Historique cumulatif des jours validés</h4>';
+      container.innerHTML = '<h4 class="font-bold mb-3 text-slate-100">Ligne temporelle des validations</h4>';
       
-      if (Object.keys(taskHistory).length === 0) {
-        container.innerHTML += '<p class="text-sm text-slate-400">Aucune archive pour le moment.</p>';
+      const doneBlues = tasks.filter(t => t.type === 'blue' && t.doneDate);
+      if(doneBlues.length === 0) {
+        container.innerHTML += '<p class="text-xs text-slate-400">Aucune tâche flottante verrouillée pour le moment.</p>';
         return;
       }
-
-      Object.keys(taskHistory).sort().reverse().forEach(date => {
+      doneBlues.forEach(b => {
         container.innerHTML += `
-          <div class="p-2 border-b border-slate-700 flex justify-between text-sm">
-            <span>📅 <strong>${date}</strong></span>
-            <span class="text-emerald-400">${Object.keys(taskHistory[date]).length} action(s) enregistrée(s)</span>
+          <div class="p-2 border-b border-slate-700 flex justify-between text-xs">
+            <span class="text-blue-400 font-bold">📌 ${b.name}</span>
+            <span class="text-slate-400">Fichée au : ${b.doneDate}</span>
           </div>
         `;
       });
     }
 
-    function initCharts() {
-      const sleepListEl = document.getElementById('sleepHistoryList');
-      if (sleepListEl) {
-        sleepListEl.innerHTML = sleepData.slice(-3).map((s, idx) => `
-          <div class="flex justify-between items-center text-xs bg-slate-900 p-2 rounded mb-1">
-            <span>${s.date} : ${s.bed} ➔ ${s.wake} (${s.duration.toFixed(1)}h)</span>
-            <button class="text-red-400" onclick="removeMetric('sleep', ${idx})">🗑️</button>
-          </div>
-        `).join('');
-      }
-    }
-
     function saveLocalStorage() { localStorage.setItem('prod_tasks', JSON.stringify(tasks)); }
-    function openTaskModal() { document.getElementById('taskModal').classList.add('open'); }
-    function closeTaskModal() { document.getElementById('taskModal').classList.remove('open'); }
-
-    // Enregistrement auto à minuit
-    function midnightAutoCheck() {
-      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-      const yStr = yesterday.toISOString().split('T')[0];
-      if (!taskHistory[yStr]) {
-        taskHistory[yStr] = {};
-        localStorage.setItem('prod_history', JSON.stringify(taskHistory));
-      }
-    }
+    function openModal() { document.getElementById('taskModal').classList.add('open'); onTypeChange(); }
+    function closeModal() { document.getElementById('taskModal').classList.remove('open'); }
 
     window.addEventListener('DOMContentLoaded', () => {
       try {
         tasks = JSON.parse(localStorage.getItem('prod_tasks')) || [];
-        sleepData = JSON.parse(localStorage.getItem('prod_sleep')) || [];
-        napData = JSON.parse(localStorage.getItem('prod_naps')) || [];
         taskHistory = JSON.parse(localStorage.getItem('prod_history')) || {};
       } catch(e){}
-      
       renderWidgetCalendar();
       renderTasks();
-      setInterval(midnightAutoCheck, 60000);
     });
 
-    const TYPE_LABELS = { red: 'Unique', orange: 'Mensuelle', yellow: 'Hebdomadaire', green: 'Quotidienne' };
-    const TYPE_COLORS = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e' };
-    const TYPE_CLASSES = { red: 'redTask', orange: 'orangeTask', yellow: 'yellowTask', green: 'greenTask' };
+    const TYPE_COLORS = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e', blue: '#3b82f6' };
   </script>
 </head>
 <body class="p-4 md:p-6">
 
-  <div class="max-w-4xl mx-auto space-y-6">
+  <div class="max-w-3xl mx-auto space-y-6">
     
     <header class="flex justify-between items-center">
       <div>
-        <h1 class="text-2xl font-black text-slate-100 tracking-tight">STUDIO PRODUCTIVITÉ</h1>
-        <p class="text-xs text-slate-400" id="selectedDayTitle"></p>
+        <h1 class="text-2xl font-black tracking-tight text-slate-100">WORKSPACE PRODUCTIVITÉ</h1>
+        <p class="text-xs text-orange-400 font-medium" id="selectedDayTitle"></p>
       </div>
-      <button class="btn-primary" onclick="openTaskModal()">➕ Nouveau Programme</button>
+      <button class="btn-primary" onclick="openModal()">➕ Nouveau Programme</button>
     </header>
 
-    <!-- CALENDRIER AGENDA STYLE WIDGET (SOMBRE) -->
+    <!-- CALENDRIER DESIGN RETRAVAILLÉ -->
     <div class="widget-calendar">
-      <div class="flex justify-between items-center mb-4 px-2">
-        <h3 class="text-xl font-bold tracking-wide text-slate-100" id="calendarMonthLabel">juil. 2026</h3>
-        <div class="flex gap-4">
-          <button onclick="changeMonth(-1)" class="text-lg font-bold p-1 hover:text-orange-400">❮</button>
-          <button onclick="changeMonth(1)" class="text-lg font-bold p-1 hover:text-orange-400">❯</button>
+      <div class="flex justify-between items-center mb-4 px-1">
+        <h3 class="text-lg font-bold text-slate-200" id="calendarMonthLabel">juil. 2026</h3>
+        <div class="flex gap-3">
+          <button onclick="changeMonth(-1)" class="text-sm font-bold bg-slate-800 px-2 py-1 rounded hover:bg-slate-700">❮</button>
+          <button onclick="changeMonth(1)" class="text-sm font-bold bg-slate-800 px-2 py-1 rounded hover:bg-slate-700">❯</button>
         </div>
       </div>
       <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-500 mb-2 uppercase">
@@ -432,88 +455,75 @@
       <div class="calendar-grid" id="calendarGridCells"></div>
     </div>
 
-    <!-- ONGLETS DE NAVIGATION -->
+    <!-- ONGLETS -->
     <nav class="flex gap-2">
-      <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks')">📋 Mes Programmes du Jour</button>
-      <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Sommeil & Métriques</button>
-      <button class="tab-btn" data-tab="archives" onclick="switchTab('archives')">📁 Historique Global</button>
+      <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks')">📋 Plan du Jour</button>
+      <button class="tab-btn" data-tab="archives" onclick="switchTab('archives')">📁 Archives Définitives</button>
     </nav>
 
-    <!-- CONTENU : TÂCHES -->
+    <!-- INTERFACE PRINCIPALE DES TÂCHES -->
     <section id="tab-tasks" class="space-y-2">
       <div id="taskList" class="space-y-3"></div>
     </section>
 
-    <!-- CONTENU : MÉTRIQUES ANTI-DOUBLONS -->
-    <section id="tab-dashboard" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="card">
-        <h3 class="font-bold text-sm mb-3">😴 Sommeil Récupération</h3>
-        <div class="flex gap-2 mb-3">
-          <input type="time" id="bedTime" />
-          <input type="time" id="wakeTime" />
-          <button class="btn-primary text-xs" onclick="addSleep()">Enregistrer</button>
-        </div>
-        <div id="sleepHistoryList"></div>
-      </div>
-      <div class="card">
-        <h3 class="font-bold text-sm mb-3">💤 Sieste Vigilance</h3>
-        <div class="flex gap-2 mb-3">
-          <input type="time" id="napStart" />
-          <input type="number" id="napDuration" class="w-20" placeholder="Min" />
-          <button class="btn-primary text-xs" onclick="addNap()">Enregistrer</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- CONTENU : ARCHIVES RESTAURÉES -->
-    <section id="tab-archives" class="hidden card">
-      <div id="archiveContent"></div>
-    </section>
+    <!-- INTERFACE DES ARCHIVES -->
+    <section id="tab-archives" class="hidden card"></section>
 
   </div>
 
-  <!-- MODAL DE CRÉATION DE PROGRAMME COMPLEXE -->
+  <!-- TUNNEL DE CONFIGURATION AVANCÉ -->
   <div id="taskModal" class="modal-overlay">
     <div class="modal-content">
-      <h3 class="font-bold text-xl mb-4 text-slate-100">⚙️ Paramétrer une Planification</h3>
+      <h3 class="font-bold text-lg mb-4 text-slate-100">⚙️ Tunnel de Configuration</h3>
       
-      <div class="space-y-4 text-slate-200">
+      <div class="space-y-4">
         <div>
-          <label class="text-xs font-bold block mb-1 text-slate-400">Nom du bloc / rituel</label>
-          <input type="text" id="taskName" class="w-full" placeholder="Ex: Entraînement Musculation, Jeûne Rituels" />
+          <label class="text-xs font-bold text-slate-400 block mb-1">Intitulé du programme / de l'action</label>
+          <input type="text" id="taskName" class="w-full" placeholder="Ex: Entraînement Force, Prières Sacrées" />
         </div>
 
         <div>
-          <label class="text-xs font-bold block mb-1 text-slate-400">Fréquence</label>
+          <label class="text-xs font-bold text-slate-400 block mb-1">Type de structure</label>
           <select id="taskType" class="w-full" onchange="onTypeChange()">
-            <option value="green">🟢 Quotidienne</option>
-            <option value="yellow">🟡 Hebdomadaire (Quota libre)</option>
-            <option value="orange">🟠 Mensuelle (Dates / Jours ciblés)</option>
-            <option value="red">🔴 Unique / RDV Pro</option>
+            <option value="green">🟢 Quotidienne (Standard ou Composée)</option>
+            <option value="blue">🔵 Bleue (Flottante définitive sans rature)</option>
+            <option value="yellow">🟡 Hebdomadaire (Sport / Cycle)</option>
+            <option value="orange">🟠 Mensuelle (Dates fixes)</option>
+            <option value="red">🔴 Unique (Date spécifique)</option>
           </select>
         </div>
 
-        <!-- Section configuration PPL / Quotas dynamiques -->
-        <div id="quotaSetupSection" class="hidden space-y-2 border-l-2 border-blue-500 pl-3">
-          <label class="text-xs font-bold block text-slate-400">Combien de séances / occurrences dans ce cycle ?</label>
-          <input type="number" id="taskQuotaValue" class="w-full mb-2" min="1" placeholder="Ex: 3" oninput="generateQuotaInputs()" />
-          <div id="quotaNamesContainer"></div>
+        <!-- Question exclusive Tâches Composées Quotidiennes (Ex: Prières) -->
+        <div id="composedTaskSection" class="hidden border-l-2 border-green-500 pl-3 space-y-2">
+          <label class="text-xs font-bold text-slate-300 block">Est-ce une tâche composée de plusieurs étapes ?</label>
+          <select id="isComposed" class="w-full">
+            <option value="no">Non, c'est une action simple</option>
+            <option value="yes">Oui, elle a plusieurs sous-étapes</option>
+          </select>
+          <label class="text-xs text-slate-400 block mt-1">Séparez les sous-étapes par une virgule :</label>
+          <input type="text" id="composedNodes" class="w-full text-xs" value="Subh, Dhuhr, Asr, Maghrib, Isha" />
         </div>
 
-        <!-- Spécificités Jours Saints / Pratiques Islam -->
-        <div id="muslimDaySection" class="hidden border-l-2 border-orange-500 pl-3">
-          <label class="text-xs font-bold block text-slate-400">Restreindre à des jours fixes de la semaine ?</label>
-          <select id="taskSpecificDay" class="w-full">
-            <option value="all">Tous les jours du mois</option>
-            <option value="monday">Uniquement les Lundis</option>
-            <option value="thursday">Uniquement les Jeudis</option>
+        <!-- Question exclusive aux Cycles Hebdomadaires -->
+        <div id="continuousSection" class="hidden border-l-2 border-yellow-500 pl-3 space-y-2">
+          <label class="text-xs font-bold text-slate-300 block">Fonctionnement en cycle continu ?</label>
+          <select id="isContinuousSelect" class="w-full">
+            <option value="yes">Oui (Si S3 cochée ➔ Revient à S1 immédiatement)</option>
+            <option value="no">Non (Reste figé sur la semaine complète)</option>
           </select>
+        </div>
+
+        <!-- Section Quotas & Noms pour les listes et séances de sport -->
+        <div id="quotaSection" class="hidden border-l-2 border-blue-500 pl-3 space-y-2">
+          <label class="text-xs font-bold text-slate-300 block">Nombre d'occurrences ou séances du cycle :</label>
+          <input type="number" id="quotaValue" class="w-full" min="1" placeholder="Ex: 3" oninput="generateQuotaInputs()" />
+          <div id="quotaNamesFields" class="space-y-1"></div>
         </div>
       </div>
 
       <div class="flex justify-end gap-2 mt-6">
-        <button class="tab-btn bg-transparent" onclick="closeTaskModal()">Annuler</button>
-        <button class="btn-primary" onclick="saveTask()">Valider le Programme</button>
+        <button class="tab-btn bg-transparent" onclick="closeModal()">Annuler</button>
+        <button class="btn-primary" onclick="saveTask()">Valider & Déployer</button>
       </div>
     </div>
   </div>
