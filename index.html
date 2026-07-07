@@ -7,6 +7,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -83,38 +87,8 @@
 </head>
 <body class="min-h-screen">
 
-<!-- ============================================ -->
-<!-- 1. CONFIGURATION FIREBASE                    -->
-<!-- ============================================ -->
-<script type="module">
-  // ============================================================
-  // COLLEZ VOS CLÉS FIREBASE ICI (Firestore + Auth)
-  // ============================================================
-  const firebaseConfig = {
-    apiKey: "VOTRE_API_KEY",
-    authDomain: "VOTRE_AUTH_DOMAIN",
-    projectId: "VOTRE_PROJECT_ID",
-    storageBucket: "VOTRE_STORAGE_BUCKET",
-    messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
-    appId: "VOTRE_APP_ID"
-  };
-  // ============================================================
-  // Import Firebase modules si vous activez le mode module
-  // import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-  // import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-  // import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-  // const app = initializeApp(firebaseConfig);
-  // const db = getFirestore(app);
-  // const auth = getAuth(app);
-  // ============================================================
-</script>
-
-<!-- ============================================ -->
-<!-- APP CONTAINER                                -->
-<!-- ============================================ -->
 <div id="app" class="max-w-5xl mx-auto p-4">
 
-  <!-- HEADER -->
   <header class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold tracking-tight">Productivité Vétérinaire & Athlète</h1>
@@ -125,18 +99,13 @@
     </button>
   </header>
 
-  <!-- NAVIGATION TABS -->
   <nav class="flex gap-2 mb-6 flex-wrap">
     <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks')">📋 Tâches du Jour</button>
     <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Tableau de Bord</button>
     <button class="tab-btn" data-tab="archives" onclick="switchTab('archives')">📁 Archives & Rapports</button>
   </nav>
 
-  <!-- ============================================ -->
-  <!-- TAB: TÂCHES DU JOUR                          -->
-  <!-- ============================================ -->
   <section id="tab-tasks">
-    <!-- Date & Alertes -->
     <div class="card mb-4">
       <div class="flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -147,17 +116,11 @@
       </div>
       <div id="alertBox" class="alert-box mt-3"></div>
     </div>
-
-    <!-- Liste des tâches -->
     <div id="taskList" class="space-y-3"></div>
   </section>
 
-  <!-- ============================================ -->
-  <!-- TAB: TABLEAU DE BORD                         -->
-  <!-- ============================================ -->
   <section id="tab-dashboard" class="hidden">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-      <!-- Sommeil Nocturne -->
       <div class="card pdf-section">
         <h3 class="font-bold mb-2">😴 Sommeil Nocturne</h3>
         <div class="flex gap-2 mb-2">
@@ -170,7 +133,6 @@
         </div>
       </div>
 
-      <!-- Siestes -->
       <div class="card pdf-section">
         <h3 class="font-bold mb-2">💤 Siestes</h3>
         <div class="flex gap-2 mb-2 flex-wrap">
@@ -183,7 +145,6 @@
         </div>
       </div>
 
-      <!-- Discipline Sportive -->
       <div class="card pdf-section">
         <h3 class="font-bold mb-2">💪 Discipline Sportive (Quota Hebdo)</h3>
         <div class="flex gap-2 mb-2 flex-wrap items-center">
@@ -197,7 +158,6 @@
         </div>
       </div>
 
-      <!-- Suivi Global par Tâche -->
       <div class="card pdf-section">
         <h3 class="font-bold mb-2">📈 Suivi Global par Tâche</h3>
         <div class="chart-container">
@@ -206,7 +166,6 @@
       </div>
     </div>
 
-    <!-- Métriques Sommeil -->
     <div class="card mb-4 pdf-section">
       <h3 class="font-bold mb-3">📊 Métriques de Sommeil</h3>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
@@ -230,9 +189,6 @@
     </div>
   </section>
 
-  <!-- ============================================ -->
-  <!-- TAB: ARCHIVES & RAPPORTS                     -->
-  <!-- ============================================ -->
   <section id="tab-archives" class="hidden">
     <div class="card mb-4">
       <h3 class="font-bold mb-3">📁 Gestion des Archives & Rapports</h3>
@@ -247,7 +203,6 @@
       <div id="archiveContent"></div>
     </div>
 
-    <!-- Zone d'export PDF (cachée visuellement mais utilisée par html2pdf) -->
     <div id="pdfExportZone" style="position:absolute; left:-9999px; top:-9999px; width:800px; background:#fff; color:#0f172a; padding:2rem;">
       <div style="text-align:center; margin-bottom:2rem;">
         <h1 style="font-size:1.5rem; font-weight:bold; margin-bottom:0.5rem;">Rapport de Productivité</h1>
@@ -260,9 +215,6 @@
 
 </div>
 
-<!-- ============================================ -->
-<!-- MODAL: AJOUTER UNE TÂCHE                     -->
-<!-- ============================================ -->
 <div id="taskModal" class="modal-overlay">
   <div class="modal-content">
     <h3 class="text-lg font-bold mb-4">➕ Nouvelle Tâche</h3>
@@ -304,12 +256,36 @@
   </div>
 </div>
 
-<!-- ============================================ -->
-<!-- JAVASCRIPT COMPLET                             -->
-<!-- ============================================ -->
 <script>
 // ============================================================
-// DONNÉES & ÉTAT
+// CONFIGURATION DE TA BASE DE DONNÉES FIREBASE
+// ============================================================
+// Remplace les valeurs ci-dessous par tes propres clés Firebase obtenues sur ta console Firebase
+const firebaseConfig = {
+  apiKey: "VOTRE_API_KEY",
+  authDomain: "VOTRE_AUTH_DOMAIN",
+  projectId: "VOTRE_PROJECT_ID",
+  storageBucket: "VOTRE_STORAGE_BUCKET",
+  messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
+  appId: "VOTRE_APP_ID"
+};
+
+// Initialisation de Firebase de façon sécurisée
+let db = null;
+try {
+  if (firebaseConfig.apiKey !== "VOTRE_API_KEY") {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    console.log("Firebase connecté avec succès !");
+  } else {
+    console.warn("Firebase fonctionne actuellement en mode LocalStorage (Clés manquantes).");
+  }
+} catch (e) {
+  console.error("Erreur d'initialisation Firebase: ", e);
+}
+
+// ============================================================
+// ÉTAT DE L'APPLICATION
 // ============================================================
 const TYPE_ORDER = ['red', 'orange', 'yellow', 'green', 'blue'];
 const TYPE_LABELS = { red: 'Unique/RDV', orange: 'Mensuelle', yellow: 'Hebdomadaire', green: 'Quotidienne', blue: 'Flottante' };
@@ -327,11 +303,10 @@ let streaks = { orange: 0, yellow: 0, green: 0 };
 let chartInstances = {};
 
 // ============================================================
-// UTILITAIRES
+// UTILITAIRES DE DATE
 // ============================================================
 function getTodayStr() {
-  const d = new Date();
-  return d.toISOString().split('T')[0];
+  return new Date().toISOString().split('T')[0];
 }
 function getWeekStartStr(dateStr) {
   const d = new Date(dateStr);
@@ -351,6 +326,7 @@ function getWeekNumber(dateStr) {
   return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 function formatDateFr(dateStr) {
+  if (!dateStr) return '';
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
@@ -369,89 +345,97 @@ function sleepDuration(bed, wake) {
   if (wakeM < bedM) wakeM += 24 * 60;
   return (wakeM - bedM) / 60;
 }
+
+// ============================================================
+// SYNCHRONISATION DES DONNÉES (Firebase / LocalStorage)
+// ============================================================
 function loadData() {
-  try {
-    const t = localStorage.getItem('prod_tasks');
-    const s = localStorage.getItem('prod_sleep');
-    const n = localStorage.getItem('prod_naps');
-    const sp = localStorage.getItem('prod_sport');
-    const sq = localStorage.getItem('prod_sportQuota');
-    const th = localStorage.getItem('prod_taskHistory');
-    const st = localStorage.getItem('prod_streaks');
-    if (t) tasks = JSON.parse(t);
-    if (s) sleepData = JSON.parse(s);
-    if (n) napData = JSON.parse(n);
-    if (sp) sportData = JSON.parse(sp);
-    if (sq) sportQuota = parseInt(sq);
-    if (th) taskHistory = JSON.parse(th);
-    if (st) streaks = JSON.parse(st);
-  } catch(e) {}
+  if (db) {
+    // Si Firebase est configuré, on écoute les tâches en temps réel
+    db.collection("tasks").onSnapshot((snapshot) => {
+      tasks = [];
+      snapshot.forEach(doc => {
+        tasks.push({ id: doc.id, ...doc.data() });
+      });
+      updateStreaks();
+      renderTasks();
+      if (document.getElementById('tab-dashboard').classList.contains('hidden') === false) {
+        initCharts();
+      }
+    });
+
+    // Charger le reste des collections une fois
+    db.collection("metrics").doc("sleep").get().then(doc => { if(doc.exists) { sleepData = doc.data().list || []; updateSleepMetrics(); } });
+    db.collection("metrics").doc("naps").get().then(doc => { if(doc.exists) { napData = doc.data().list || []; updateNapMetrics(); } });
+    db.collection("metrics").doc("sport").get().then(doc => { if(doc.exists) { sportData = doc.data().list || []; } });
+    db.collection("metrics").doc("history").get().then(doc => { if(doc.exists) { taskHistory = doc.data().history || []; } });
+  } else {
+    // Mode de secours LocalStorage
+    try {
+      const t = localStorage.getItem('prod_tasks');
+      const s = localStorage.getItem('prod_sleep');
+      const n = localStorage.getItem('prod_naps');
+      const sp = localStorage.getItem('prod_sport');
+      const sq = localStorage.getItem('prod_sportQuota');
+      const th = localStorage.getItem('prod_taskHistory');
+      const st = localStorage.getItem('prod_streaks');
+      if (t) tasks = JSON.parse(t);
+      if (s) sleepData = JSON.parse(s);
+      if (n) napData = JSON.parse(n);
+      if (sp) sportData = JSON.parse(sp);
+      if (sq) sportQuota = parseInt(sq);
+      if (th) taskHistory = JSON.parse(th);
+      if (st) streaks = JSON.parse(st);
+    } catch(e) { console.error(e); }
+  }
 }
-function saveData() {
-  localStorage.setItem('prod_tasks', JSON.stringify(tasks));
-  localStorage.setItem('prod_sleep', JSON.stringify(sleepData));
-  localStorage.setItem('prod_naps', JSON.stringify(napData));
-  localStorage.setItem('prod_sport', JSON.stringify(sportData));
-  localStorage.setItem('prod_sportQuota', String(sportQuota));
-  localStorage.setItem('prod_taskHistory', JSON.stringify(taskHistory));
-  localStorage.setItem('prod_streaks', JSON.stringify(streaks));
+
+function syncData(collectionName, docId, localDataObj) {
+  if (db) {
+    db.collection(collectionName).doc(docId).set({ list: localDataObj });
+  } else {
+    localStorage.setItem('prod_' + docId, JSON.stringify(localDataObj));
+  }
 }
 
 // ============================================================
-// THÈME
+// NAVIGATION ET THÈME
 // ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const targetBtn = document.querySelector(`[data-tab="${tab}"]`);
+  if (targetBtn) targetBtn.classList.add('active');
+  
+  ['tasks','dashboard','archives'].forEach(t => {
+    document.getElementById('tab-' + t).classList.add('hidden');
+  });
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  
+  if (tab === 'dashboard') setTimeout(initCharts, 50);
+  if (tab === 'archives') renderArchives();
+}
+
 function initTheme() {
   const saved = localStorage.getItem('prod_theme');
   if (saved === 'dark') document.documentElement.classList.add('dark');
   updateThemeIcon();
 }
-document.getElementById('themeToggle').addEventListener('click', () => {
-  document.documentElement.classList.toggle('dark');
-  localStorage.setItem('prod_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-  updateThemeIcon();
-  setTimeout(() => { initCharts(); renderTasks(); renderArchives(); }, 100);
-});
+
 function updateThemeIcon() {
   document.getElementById('themeIcon').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
 }
 
 // ============================================================
-// NAVIGATION
-// ============================================================
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-  ['tasks','dashboard','archives'].forEach(t => {
-    document.getElementById('tab-' + t).classList.add('hidden');
-  });
-  document.getElementById('tab-' + tab).classList.remove('hidden');
-  if (tab === 'dashboard') {
-    setTimeout(initCharts, 50);
-  }
-  if (tab === 'archives') {
-    renderArchives();
-  }
-}
-
-// ============================================================
-// TÂCHES - LOGIQUE PRINCIPALE
+// GESTION DES TÂCHES
 // ============================================================
 function getTasksForDate(dateStr) {
-  const today = getTodayStr();
   const weekStart = getWeekStartStr(dateStr);
-  const monthStart = getMonthStartStr(dateStr);
-
   return tasks.filter(t => {
     if (t.type === 'red') return t.date === dateStr;
-    if (t.type === 'orange') {
-      return t.date && t.date.slice(0,7) === dateStr.slice(0,7);
-    }
-    if (t.type === 'yellow') {
-      return t.date && getWeekStartStr(t.date) === weekStart;
-    }
+    if (t.type === 'orange') return t.date && t.date.slice(0,7) === dateStr.slice(0,7);
+    if (t.type === 'yellow') return t.date && getWeekStartStr(t.date) === weekStart;
     if (t.type === 'green') return true;
     if (t.type === 'blue') {
-      // Flottantes : si non complétées, apparaissent toujours aujourd'hui
       if (t.completed || (t.subcases && t.subcases.every(s => s.done))) {
         return t.completedDate === dateStr;
       }
@@ -466,16 +450,17 @@ function renderTasks() {
   document.getElementById('currentDateDisplay').textContent = formatDateFr(today);
   document.getElementById('weekInfo').textContent = 'Semaine ' + getWeekNumber(today);
 
-  // Alertes pour demain
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
   const alerts = [];
+  
   tasks.forEach(t => {
     if (t.type === 'red' && t.date === tomorrowStr) alerts.push(`🔴 RDV demain : ${t.name}`);
     if (t.type === 'orange' && t.date && t.date.slice(0,7) === tomorrowStr.slice(0,7)) alerts.push(`🟠 Tâche mensuelle : ${t.name}`);
     if (t.type === 'yellow' && t.date && getWeekStartStr(t.date) === getWeekStartStr(tomorrowStr)) alerts.push(`🟡 Tâche hebdo : ${t.name}`);
   });
+  
   const alertBox = document.getElementById('alertBox');
   if (alerts.length > 0) {
     alertBox.innerHTML = '<strong>⚠️ Alertes pour demain :</strong><br>' + alerts.join('<br>');
@@ -484,13 +469,12 @@ function renderTasks() {
     alertBox.style.display = 'none';
   }
 
-  // Rendu des tâches triées par couleur
   const todayTasks = getTasksForDate(today);
   const container = document.getElementById('taskList');
   container.innerHTML = '';
 
   if (todayTasks.length === 0) {
-    container.innerHTML = '<div class="card text-center" style="color:var(--muted)">Aucune tâche pour aujourd'hui. Ajoutez-en une !</div>';
+    container.innerHTML = `<div class="card text-center" style="color:var(--muted)">Aucune tâche pour aujourd'hui. Ajoutez-en une !</div>`;
     return;
   }
 
@@ -543,14 +527,16 @@ function renderTasks() {
 
 function toggleTask(id) {
   const task = tasks.find(t => t.id === id);
-  if (!task) return;
-  if (task.subcases && task.subcases.length > 0) return; // complex tasks use subcases
+  if (!task || (task.subcases && task.subcases.length > 0)) return;
   task.completed = !task.completed;
-  if (task.completed) task.completedDate = getTodayStr();
-  recordTaskHistory(task);
-  updateStreaks();
-  saveData();
-  renderTasks();
+  task.completedDate = task.completed ? getTodayStr() : null;
+  
+  if (db) {
+    db.collection("tasks").doc(id).update({ completed: task.completed, completedDate: task.completedDate });
+  } else {
+    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+    recordTaskHistory(task); updateStreaks(); renderTasks();
+  }
 }
 
 function toggleSubcase(taskId, subIdx) {
@@ -559,11 +545,14 @@ function toggleSubcase(taskId, subIdx) {
   task.subcases[subIdx].done = !task.subcases[subIdx].done;
   const allDone = task.subcases.every(s => s.done);
   task.completed = allDone;
-  if (allDone) task.completedDate = getTodayStr();
-  recordTaskHistory(task);
-  updateStreaks();
-  saveData();
-  renderTasks();
+  task.completedDate = allDone ? getTodayStr() : null;
+
+  if (db) {
+    db.collection("tasks").doc(taskId).update({ subcases: task.subcases, completed: task.completed, completedDate: task.completedDate });
+  } else {
+    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+    recordTaskHistory(task); updateStreaks(); renderTasks();
+  }
 }
 
 function recordTaskHistory(task) {
@@ -572,12 +561,13 @@ function recordTaskHistory(task) {
   const total = task.subcases ? task.subcases.length : 1;
   const done = task.subcases ? task.subcases.filter(s => s.done).length : (task.completed ? 1 : 0);
   taskHistory[today][task.id] = { name: task.name, type: task.type, total, done, pct: Math.round((done/total)*100) };
+  if (db) db.collection("metrics").doc("history").set({ history: taskHistory });
+  else localStorage.setItem('prod_taskHistory', JSON.stringify(taskHistory));
 }
 
 function updateStreaks() {
   const today = getTodayStr();
-  const types = ['orange', 'yellow', 'green'];
-  types.forEach(type => {
+  ['orange', 'yellow', 'green'].forEach(type => {
     const typeTasks = tasks.filter(t => t.type === type);
     if (typeTasks.length === 0) { streaks[type] = 0; return; }
     let streak = 0;
@@ -586,28 +576,27 @@ function updateStreaks() {
       const dateStr = checkDate.toISOString().split('T')[0];
       const dayTasks = getTasksForDate(dateStr).filter(t => t.type === type);
       if (dayTasks.length === 0) break;
-      const allDone = dayTasks.every(t => {
-        if (t.subcases) return t.subcases.every(s => s.done);
-        return t.completed;
-      });
+      const allDone = dayTasks.every(t => t.subcases ? t.subcases.every(s => s.done) : t.completed);
       if (!allDone) break;
       streak++;
       checkDate.setDate(checkDate.getDate() - 1);
     }
     streaks[type] = streak;
   });
+  localStorage.setItem('prod_streaks', JSON.stringify(streaks));
 }
 
 function deleteTask(id) {
   if (!confirm('Supprimer cette tâche ?')) return;
-  tasks = tasks.filter(t => t.id !== id);
-  saveData();
-  renderTasks();
+  if (db) {
+    db.collection("tasks").doc(id).delete();
+  } else {
+    tasks = tasks.filter(t => t.id !== id);
+    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+    renderTasks();
+  }
 }
 
-// ============================================================
-// MODAL TÂCHE
-// ============================================================
 function openTaskModal() {
   document.getElementById('taskModal').classList.add('open');
   document.getElementById('taskName').value = '';
@@ -624,6 +613,7 @@ function toggleSubcases() {
   const isComplex = document.getElementById('taskStructure').value === 'complex';
   document.getElementById('subcasesContainer').classList.toggle('hidden', !isComplex);
 }
+
 function saveTask() {
   const name = document.getElementById('taskName').value.trim();
   const type = document.getElementById('taskType').value;
@@ -638,8 +628,8 @@ function saveTask() {
     subcases = subcaseNames.split(',').map(s => ({ name: s.trim(), done: false })).filter(s => s.name);
   }
 
-  const task = {
-    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2,9),
+  const generatedId = 'task_' + Date.now();
+  const taskData = {
     name,
     type,
     date: date || null,
@@ -649,14 +639,18 @@ function saveTask() {
     createdAt: getTodayStr()
   };
 
-  tasks.push(task);
-  saveData();
+  if (db) {
+    db.collection("tasks").doc(generatedId).set(taskData);
+  } else {
+    tasks.push({ id: generatedId, ...taskData });
+    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+    renderTasks();
+  }
   closeTaskModal();
-  renderTasks();
 }
 
 // ============================================================
-// TABLEAU DE BORD - SOMMEIL
+// SUIVI MÉTRIQUES (SOMMEIL, SIÈSTE, SPORT)
 // ============================================================
 function addSleep() {
   const bed = document.getElementById('bedTime').value;
@@ -664,17 +658,13 @@ function addSleep() {
   if (!bed || !wake) { alert('Veuillez renseigner les deux horaires'); return; }
   const duration = sleepDuration(bed, wake);
   sleepData.push({ date: getTodayStr(), bed, wake, duration });
-  saveData();
+  syncData("metrics", "sleep", sleepData);
   updateSleepMetrics();
   renderSleepChart();
 }
+
 function updateSleepMetrics() {
-  if (sleepData.length === 0) {
-    document.getElementById('avgSleepDuration').textContent = '--';
-    document.getElementById('avgBedTime').textContent = '--';
-    document.getElementById('avgWakeTime').textContent = '--';
-    return;
-  }
+  if (sleepData.length === 0) return;
   const avgDur = sleepData.reduce((a,b) => a + b.duration, 0) / sleepData.length;
   const avgBed = sleepData.reduce((a,b) => a + timeToMinutes(b.bed), 0) / sleepData.length;
   const avgWake = sleepData.reduce((a,b) => a + timeToMinutes(b.wake), 0) / sleepData.length;
@@ -683,43 +673,35 @@ function updateSleepMetrics() {
   document.getElementById('avgWakeTime').textContent = minutesToTime(Math.round(avgWake));
 }
 
-// ============================================================
-// TABLEAU DE BORD - SIESTES
-// ============================================================
 function addNap() {
   const start = document.getElementById('napStart').value;
   const duration = parseInt(document.getElementById('napDuration').value);
-  if (!start || !duration) { alert('Veuillez renseigner l'heure et la durée'); return; }
+  if (!start || !duration) { alert('Veuillez renseigner l\'heure et la durée'); return; }
   napData.push({ date: getTodayStr(), start, duration });
-  saveData();
+  syncData("metrics", "naps", napData);
   updateNapMetrics();
   renderNapChart();
 }
+
 function updateNapMetrics() {
-  if (napData.length === 0) {
-    document.getElementById('avgNapDuration').textContent = '--';
-    return;
-  }
+  if (napData.length === 0) return;
   const avg = napData.reduce((a,b) => a + b.duration, 0) / napData.length;
   document.getElementById('avgNapDuration').textContent = Math.round(avg) + ' min';
 }
 
-// ============================================================
-// TABLEAU DE BORD - SPORT
-// ============================================================
 function updateSportQuota() {
   sportQuota = parseInt(document.getElementById('sportQuota').value) || 4;
-  saveData();
+  localStorage.setItem('prod_sportQuota', String(sportQuota));
   renderSportChart();
 }
 function logSport(done) {
   sportData.push({ date: getTodayStr(), done });
-  saveData();
+  syncData("metrics", "sport", sportData);
   renderSportChart();
 }
 
 // ============================================================
-// CHARTS
+// CONSTRUIRE LES GRAPHIQUES (CHART.JS)
 // ============================================================
 function destroyChart(key) {
   if (chartInstances[key]) { chartInstances[key].destroy(); delete chartInstances[key]; }
@@ -728,70 +710,55 @@ function getChartColors() {
   const isDark = document.documentElement.classList.contains('dark');
   return {
     text: isDark ? '#f1f5f9' : '#0f172a',
-    grid: isDark ? '#334155' : '#e2e8f0',
-    tooltipBg: isDark ? '#1e293b' : '#ffffff',
-    tooltipText: isDark ? '#f1f5f9' : '#0f172a'
+    grid: isDark ? '#334155' : '#e2e8f0'
   };
 }
 function renderSleepChart() {
   destroyChart('sleep');
-  const ctx = document.getElementById('sleepChart').getContext('2d');
+  const canvas = document.getElementById('sleepChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   const c = getChartColors();
   const recent = sleepData.slice(-14);
   chartInstances.sleep = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: recent.map(d => d.date.slice(5)),
-      datasets: [{
-        label: 'Durée (h)',
-        data: recent.map(d => d.duration),
-        backgroundColor: '#3b82f6',
-        borderRadius: 4
-      }]
+      datasets: [{ label: 'Durée (h)', data: recent.map(d => d.duration), backgroundColor: '#3b82f6', borderRadius: 4 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: c.text } } },
-      scales: {
-        x: { ticks: { color: c.text }, grid: { color: c.grid } },
-        y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true }
-      }
+      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true } }
     }
   });
 }
 function renderNapChart() {
   destroyChart('nap');
-  const ctx = document.getElementById('napChart').getContext('2d');
+  const canvas = document.getElementById('napChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   const c = getChartColors();
   const recent = napData.slice(-14);
   chartInstances.nap = new Chart(ctx, {
     type: 'line',
     data: {
       labels: recent.map(d => d.date.slice(5)),
-      datasets: [{
-        label: 'Durée sieste (min)',
-        data: recent.map(d => d.duration),
-        borderColor: '#f59e0b',
-        backgroundColor: 'rgba(245,158,11,0.2)',
-        fill: true, tension: 0.3, pointRadius: 4
-      }]
+      datasets: [{ label: 'Durée sieste (min)', data: recent.map(d => d.duration), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.2)', fill: true, tension: 0.3, pointRadius: 4 }]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: c.text } } },
-      scales: {
-        x: { ticks: { color: c.text }, grid: { color: c.grid } },
-        y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true }
-      }
+      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true } }
     }
   });
 }
 function renderSportChart() {
   destroyChart('sport');
-  const ctx = document.getElementById('sportChart').getContext('2d');
+  const canvas = document.getElementById('sportChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   const c = getChartColors();
-
-  // Grouper par semaine
   const weekMap = {};
   sportData.forEach(d => {
     const w = getWeekStartStr(d.date);
@@ -800,48 +767,36 @@ function renderSportChart() {
     if (d.done) weekMap[w].done++;
   });
   const weeks = Object.keys(weekMap).sort().slice(-8);
-  const doneArr = weeks.map(w => weekMap[w].done);
-  const missedArr = weeks.map(w => weekMap[w].total - weekMap[w].done);
-  const successRate = weeks.map(w => {
-    const r = weekMap[w];
-    return r.total > 0 ? Math.round((r.done / Math.max(r.total, sportQuota)) * 100) : 0;
-  });
-
   chartInstances.sport = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: weeks.map(w => 'S' + getWeekNumber(w)),
       datasets: [
-        { label: 'Faits', data: doneArr, backgroundColor: '#22c55e', borderRadius: 4 },
-        { label: 'Ratés', data: missedArr, backgroundColor: '#ef4444', borderRadius: 4 },
-        { label: 'Taux %', data: successRate, type: 'line', borderColor: '#3b82f6', yAxisID: 'y1', pointRadius: 4 }
+        { label: 'Faits', data: weeks.map(w => weekMap[w].done), backgroundColor: '#22c55e', borderRadius: 4 },
+        { label: 'Ratés', data: weeks.map(w => weekMap[w].total - weekMap[w].done), backgroundColor: '#ef4444', borderRadius: 4 },
+        { label: 'Taux %', data: weeks.map(w => weekMap[w].total > 0 ? Math.round((weekMap[w].done / Math.max(weekMap[w].total, sportQuota)) * 100) : 0), type: 'line', borderColor: '#3b82f6', yAxisID: 'y1', pointRadius: 4 }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: c.text } } },
-      scales: {
-        x: { ticks: { color: c.text }, grid: { color: c.grid } },
-        y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true, stacked: true },
-        y1: { position: 'right', ticks: { color: c.text }, grid: { display: false }, min: 0, max: 100 }
-      }
+      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true, stacked: true }, y1: { position: 'right', ticks: { color: c.text }, grid: { display: false }, min: 0, max: 100 } }
     }
   });
 }
 function renderTaskChart() {
   destroyChart('task');
-  const ctx = document.getElementById('taskChart').getContext('2d');
+  const canvas = document.getElementById('taskChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   const c = getChartColors();
-
-  // Derniers 14 jours
   const dates = [];
   for (let i = 13; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
     dates.push(d.toISOString().split('T')[0]);
   }
-
   const taskNames = [...new Set(tasks.map(t => t.name))];
-  const datasets = taskNames.map((name, idx) => {
+  const datasets = taskNames.map(name => {
     const task = tasks.find(t => t.name === name);
     const color = TYPE_COLORS[task?.type || 'blue'];
     const data = dates.map(date => {
@@ -852,17 +807,13 @@ function renderTaskChart() {
     });
     return { label: name, data, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3, pointRadius: 3 };
   });
-
   chartInstances.task = new Chart(ctx, {
     type: 'line',
     data: { labels: dates.map(d => d.slice(5)), datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { labels: { color: c.text }, position: 'bottom' } },
-      scales: {
-        x: { ticks: { color: c.text }, grid: { color: c.grid } },
-        y: { ticks: { color: c.text }, grid: { color: c.grid }, min: 0, max: 100 }
-      }
+      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, min: 0, max: 100 } }
     }
   });
 }
@@ -876,69 +827,36 @@ function initCharts() {
 }
 
 // ============================================================
-// ARCHIVES & RAPPORTS
+// ARCHIVES & RAPPORTS PDF
 // ============================================================
 function renderArchives() {
   const period = document.getElementById('archivePeriod').value;
   const today = getTodayStr();
   let startDate, endDate;
-
-  if (period === 'week') {
-    startDate = getWeekStartStr(today);
-    endDate = today;
-  } else if (period === 'month') {
-    startDate = getMonthStartStr(today);
-    endDate = today;
-  } else {
-    const d = new Date(today);
-    d.setMonth(d.getMonth() - 1);
+  if (period === 'week') { startDate = getWeekStartStr(today); endDate = today; }
+  else if (period === 'month') { startDate = getMonthStartStr(today); endDate = today; }
+  else {
+    const d = new Date(today); d.setMonth(d.getMonth() - 1);
     startDate = d.toISOString().split('T')[0].slice(0,7) + '-01';
-    const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0);
-    endDate = lastDay.toISOString().split('T')[0];
+    endDate = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
   }
-
-  // Collecter toutes les tâches complétées dans la période
   const completedTasks = [];
   Object.entries(taskHistory).forEach(([date, hist]) => {
     if (date >= startDate && date <= endDate) {
-      Object.entries(hist).forEach(([taskId, entry]) => {
-        if (entry.pct === 100) {
-          completedTasks.push({ date, ...entry });
-        }
-      });
+      Object.entries(hist).forEach(([taskId, entry]) => { if (entry.pct === 100) completedTasks.push({ date, ...entry }); });
     }
   });
-
-  // Grouper par type
   const byType = { red: [], orange: [], yellow: [], green: [], blue: [] };
   completedTasks.forEach(t => { if (byType[t.type]) byType[t.type].push(t); });
-
   const container = document.getElementById('archiveContent');
   let html = `<div class="mb-4"><strong>Période :</strong> ${formatDateFr(startDate)} → ${formatDateFr(endDate)}</div>`;
-
   TYPE_ORDER.forEach(type => {
     const list = byType[type];
-    html += `<div class="card mb-3" style="border-left:4px solid ${TYPE_COLORS[type]}">`;
-    html += `<h4 class="font-bold mb-2">${TYPE_LABELS[type]} (${list.length} tâche${list.length > 1 ? 's' : ''})</h4>`;
-    if (list.length === 0) {
-      html += '<p style="color:var(--muted)" class="text-sm">Aucune tâche accomplie</p>';
-    } else {
-      html += '<ul class="space-y-1">';
-      list.forEach(t => {
-        html += `<li class="text-sm">✅ <strong>${t.name}</strong> — ${formatDateFr(t.date)}</li>`;
-      });
-      html += '</ul>';
-    }
+    html += `<div class="card mb-3" style="border-left:4px solid ${TYPE_COLORS[type]}"><h4 class="font-bold mb-2">${TYPE_LABELS[type]} (${list.length})</h4>`;
+    if (list.length === 0) html += '<p style="color:var(--muted)" class="text-sm">Aucune tâche accomplie</p>';
+    else { html += '<ul class="space-y-1">'; list.forEach(t => { html += `<li class="text-sm">✅ <strong>${t.name}</strong> — ${formatDateFr(t.date)}</li>`; }); html += '</ul>'; }
     html += '</div>';
   });
-
-  // Stats globales
-  const totalCompleted = completedTasks.length;
-  const totalTasks = Object.values(taskHistory).reduce((a, hist) => a + Object.keys(hist).length, 0);
-  html += `<div class="card"><h4 class="font-bold mb-2">📊 Statistiques Globales</h4>`;
-  html += `<p class="text-sm">Tâches complétées : <strong>${totalCompleted}</strong> / ${totalTasks}</p>`;
-  html += `<p class="text-sm">Taux de réussite : <strong>${totalTasks > 0 ? Math.round((totalCompleted/totalTasks)*100) : 0}%</strong></p></div>`;
-
   container.innerHTML = html;
 }
 
@@ -953,85 +871,33 @@ function exportPDF() {
     startDate = d.toISOString().split('T')[0].slice(0,7)+'-01';
     endDate = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
   }
-
-  // Préparer le contenu PDF
   const pdfZone = document.getElementById('pdfExportZone');
   document.getElementById('pdfDateRange').textContent = `${formatDateFr(startDate)} — ${formatDateFr(endDate)}`;
-
-  // Copier les métriques
-  const metricsHtml = `
+  const chartsArea = document.getElementById('pdfChartsArea');
+  chartsArea.innerHTML = `
     <div style="margin-bottom:1.5rem;">
-      <h2 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Métriques de Sommeil</h2>
-      <div style="display:flex; gap:2rem; flex-wrap:wrap;">
-        <div><strong>${document.getElementById('avgSleepDuration').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Moy. Sommeil</span></div>
-        <div><strong>${document.getElementById('avgBedTime').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Heure moy. Coucher</span></div>
-        <div><strong>${document.getElementById('avgWakeTime').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Heure moy. Réveil</span></div>
-        <div><strong>${document.getElementById('avgNapDuration').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Moy. Sieste</span></div>
-      </div>
+      <h2 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Métriques</h2>
+      <p>Moy. Sommeil : ${document.getElementById('avgSleepDuration').textContent}</p>
+      <p>Moy. Sieste : ${document.getElementById('avgNapDuration').textContent}</p>
     </div>
   `;
-
-  // Copier les graphiques (on prend les canvas et on les convertit en images)
-  const chartsArea = document.getElementById('pdfChartsArea');
-  chartsArea.innerHTML = metricsHtml;
-
   ['sleepChart','napChart','sportChart','taskChart'].forEach(id => {
     const canvas = document.getElementById(id);
     if (canvas) {
       const img = document.createElement('img');
       img.src = canvas.toDataURL('image/png');
       img.style.width = '100%';
-      img.style.maxWidth = '700px';
       img.style.marginBottom = '1.5rem';
       chartsArea.appendChild(img);
     }
   });
-
-  // Historique des tâches
-  const tasksArea = document.getElementById('pdfTasksArea');
-  let tasksHtml = '<h2 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Historique des Tâches</h2>';
-  const allDates = Object.keys(taskHistory).filter(d => d >= startDate && d <= endDate).sort();
-  if (allDates.length === 0) {
-    tasksHtml += '<p style="color:#64748b;">Aucune donnée pour cette période.</p>';
-  } else {
-    tasksHtml += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">';
-    tasksHtml += '<thead><tr style="background:#f1f5f9;"><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Date</th><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Tâche</th><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Type</th><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Complétion</th></tr></thead><tbody>';
-    allDates.forEach(date => {
-      Object.values(taskHistory[date]).forEach(entry => {
-        const typeLabel = TYPE_LABELS[entry.type] || entry.type;
-        tasksHtml += `<tr><td style="padding:0.5rem; border:1px solid #e2e8f0;">${date}</td><td style="padding:0.5rem; border:1px solid #e2e8f0;">${entry.name}</td><td style="padding:0.5rem; border:1px solid #e2e8f0;">${typeLabel}</td><td style="padding:0.5rem; border:1px solid #e2e8f0;">${entry.pct}%</td></tr>`;
-      });
-    });
-    tasksHtml += '</tbody></table>';
-  }
-  tasksArea.innerHTML = tasksHtml;
-
-  // Générer le PDF
-  const opt = {
-    margin: [10, 10, 10, 10],
-    filename: `Rapport_Productivite_${startDate}_${endDate}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
-
-  html2pdf().set(opt).from(pdfZone).save().then(() => {
-    // Nettoyer
-    document.getElementById('pdfChartsArea').innerHTML = '';
-    document.getElementById('pdfTasksArea').innerHTML = '';
-  });
+  html2pdf().set({ margin: 10, filename: `Rapport_${startDate}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } }).from(pdfZone).save();
 }
 
-// ============================================================
-// ENREGISTREMENT JOURNALIER (0% si non complété)
-// ============================================================
 function dailyCheck() {
-  const today = getTodayStr();
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   const yestStr = yesterday.toISOString().split('T')[0];
-
   if (!taskHistory[yestStr]) {
-    // Aucune donnée pour hier, enregistrer 0% pour toutes les tâches actives
     const yestTasks = getTasksForDate(yestStr);
     if (yestTasks.length > 0) {
       taskHistory[yestStr] = {};
@@ -1040,56 +906,24 @@ function dailyCheck() {
         const done = t.subcases ? t.subcases.filter(s => s.done).length : (t.completed ? 1 : 0);
         taskHistory[yestStr][t.id] = { name: t.name, type: t.type, total, done, pct: Math.round((done/total)*100) };
       });
-      saveData();
+      if (db) db.collection("metrics").doc("history").set({ history: taskHistory });
     }
   }
 }
 
-// ============================================================
-// DONNÉES DE DÉMONSTRATION
-// ============================================================
 function seedDemoData() {
   if (tasks.length > 0) return;
   const today = getTodayStr();
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
   tasks = [
-    { id: 't1', name: 'RDV Client - Ferme Dupont', type: 'red', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
-    { id: 't2', name: 'Jeûne (3x/mois)', type: 'orange', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
-    { id: 't3', name: 'Séance Calisthénie', type: 'yellow', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
-    { id: 't4', name: 'Prières à la Mosquée', type: 'green', date: null, completed: false, completedDate: null, subcases: [
-      { name: 'Sobh', done: false }, { name: 'Dohr', done: false }, { name: 'Asr', done: false }, { name: 'Maghreb', done: false }, { name: 'Icha', done: false }
-    ], createdAt: today },
-    { id: 't5', name: 'Adkar Matin & Soir', type: 'green', date: null, completed: false, completedDate: null, subcases: [
-      { name: 'Matin', done: false }, { name: 'Soir', done: false }
-    ], createdAt: today },
-    { id: 't6', name: 'Révision article vétérinaire', type: 'blue', date: null, completed: false, completedDate: null, subcases: null, createdAt: today },
-    { id: 't7', name: 'Vaccin rappel chien', type: 'red', date: tomorrowStr, completed: false, completedDate: null, subcases: null, createdAt: today },
+    { id: 't1', name: 'RDV Client - Cabinet Vétérinaire', type: 'red', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
+    { id: 't3', name: 'Séance Calisthénie (Ian Barseagle)', type: 'yellow', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
+    { id: 't4', name: 'Prières à la Mosquée', type: 'green', date: null, completed: false, completedDate: null, subcases: [{ name: 'Sobh', done: false }, { name: 'Dohr', done: false }, { name: 'Asr', done: false }, { name: 'Maghreb', done: false }, { name: 'Icha', done: false }], createdAt: today }
   ];
-
-  // Données de sommeil démo
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const ds = d.toISOString().split('T')[0];
-    sleepData.push({ date: ds, bed: '23:00', wake: '06:30', duration: 7.5 });
-  }
-
-  // Données de sieste démo
-  napData.push({ date: today, start: '14:00', duration: 20 });
-
-  // Données sport démo
-  sportData.push({ date: today, done: true });
-  const d2 = new Date(); d2.setDate(d2.getDate()-2);
-  sportData.push({ date: d2.toISOString().split('T')[0], done: true });
-  const d3 = new Date(); d3.setDate(d3.getDate()-3);
-  sportData.push({ date: d3.toISOString().split('T')[0], done: false });
-
-  saveData();
+  if (!db) localStorage.setItem('prod_tasks', JSON.stringify(tasks));
 }
 
 // ============================================================
-// INITIALISATION
+// INITIALISATION FINALE
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
   loadData();
@@ -1097,11 +931,17 @@ window.addEventListener('DOMContentLoaded', () => {
   initTheme();
   renderTasks();
   dailyCheck();
-  updateStreaks();
-  // Vérification quotidienne
+  
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    document.documentElement.classList.toggle('dark');
+    localStorage.setItem('prod_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    updateThemeIcon();
+    initCharts();
+    renderTasks();
+  });
+
   setInterval(dailyCheck, 60000);
 });
 </script>
-
 </body>
-      </html>
+</html>
