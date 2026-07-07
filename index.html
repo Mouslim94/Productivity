@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Productivité Vétérinaire & Athlète</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            redTask: '#ef4444',
+            orangeTask: '#f97316',
+            yellowTask: '#eab308',
+            greenTask: '#22c55e',
+            blueTask: '#3b82f6',
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root { --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; }
+    .dark { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; }
+    body { background: var(--bg); color: var(--text); transition: background 0.3s, color 0.3s; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.25rem; }
+    .subcase { width: 48px; height: 48px; border: 2px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; text-align: center; cursor: pointer; transition: all 0.2s; user-select: none; }
+    .subcase.done { border-color: transparent; color: #fff; }
+    .subcase.done.redTask { background: #ef4444; }
+    .subcase.done.orangeTask { background: #f97316; }
+    .subcase.done.yellowTask { background: #eab308; color: #0f172a; }
+    .subcase.done.greenTask { background: #22c55e; }
+    .subcase.done.blueTask { background: #3b82f6; }
+    .dark .subcase:not(.done) { color: #f1f5f9; }
+    .dark .subcase.done.yellowTask { color: #0f172a; }
+    .tab-btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .tab-btn.active { background: #3b82f6; color: #fff; }
+    .tab-btn:not(.active):hover { background: var(--border); }
+    .streak { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; font-weight: 700; }
+    .streak-fire { color: #f97316; }
+    .alert-box { background: #fef3c7; border: 1px solid #fbbf24; color: #92400e; padding: 0.75rem 1rem; border-radius: 0.5rem; margin-bottom: 1rem; display: none; }
+    .dark .alert-box { background: #451a03; border-color: #b45309; color: #fde68a; }
+    .btn-primary { background: #3b82f6; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-danger { background: #ef4444; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-success { background: #22c55e; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; }
+    .btn-success:hover { background: #16a34a; }
+    input, select { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 0.75rem; outline: none; }
+    input:focus, select:focus { border-color: #3b82f6; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+    .modal-overlay.open { display: flex; }
+    .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+    .task-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid var(--border); margin-bottom: 0.5rem; transition: background 0.2s; }
+    .task-item:hover { background: rgba(59,130,246,0.05); }
+    .checkbox-main { width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s; }
+    .checkbox-main.done { background: currentColor; border-color: transparent; }
+    .checkbox-main svg { display: none; }
+    .checkbox-main.done svg { display: block; }
+    .pdf-section { page-break-inside: avoid; }
+    .chart-container { position: relative; height: 250px; }
+    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-orange { background: #ffedd5; color: #9a3412; }
+    .badge-yellow { background: #fef9c3; color: #854d0e; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .dark .badge-red { background: #450a0a; color: #fca5a5; }
+    .dark .badge-orange { background: #431407; color: #fdba74; }
+    .dark .badge-yellow { background: #422006; color: #fde047; }
+    .dark .badge-green { background: #052e16; color: #86efac; }
+    .dark .badge-blue { background: #172554; color: #93c5fd; }
+    .progress-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .hidden { display: none !important; }
+    .flex { display: flex; }
+    .grid { display: grid; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- ============================================ -->
+<!-- 1. CONFIGURATION FIREBASE                    -->
+<!-- ============================================ -->
+<script type="module">
+  // ============================================================
+  // COLLEZ VOS CLÉS FIREBASE ICI (Firestore + Auth)
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "VOTRE_API_KEY",
+    authDomain: "VOTRE_AUTH_DOMAIN",
+    projectId: "VOTRE_PROJECT_ID",
+    storageBucket: "VOTRE_STORAGE_BUCKET",
+    messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
+    appId: "VOTRE_APP_ID"
+  };
+  // ============================================================
+  // Import Firebase modules si vous activez le mode module
+  // import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  // import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+  // import { getAuth } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+  // const app = initializeApp(firebaseConfig);
+  // const db = getFirestore(app);
+  // const auth = getAuth(app);
+  // ============================================================
+</script>
+
+<!-- ============================================ -->
+<!-- APP CONTAINER                                -->
+<!-- ============================================ -->
+<div id="app" class="max-w-5xl mx-auto p-4">
+
+  <!-- HEADER -->
+  <header class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight">Productivité Vétérinaire & Athlète</h1>
+      <p class="text-sm" style="color:var(--muted)">Organisez votre quotidien de médecin vétérinaire, sportif et pratiquant</p>
+    </div>
+    <button id="themeToggle" class="tab-btn" title="Mode Sombre/Clair">
+      <span id="themeIcon">🌙</span>
+    </button>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="flex gap-2 mb-6 flex-wrap">
+    <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks')">📋 Tâches du Jour</button>
+    <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Tableau de Bord</button>
+    <button class="tab-btn" data-tab="archives" onclick="switchTab('archives')">📁 Archives & Rapports</button>
+  </nav>
+
+  <!-- ============================================ -->
+  <!-- TAB: TÂCHES DU JOUR                          -->
+  <!-- ============================================ -->
+  <section id="tab-tasks">
+    <!-- Date & Alertes -->
+    <div class="card mb-4">
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 class="text-lg font-bold" id="currentDateDisplay"></h2>
+          <p class="text-sm" style="color:var(--muted)" id="weekInfo"></p>
+        </div>
+        <button class="btn-primary" onclick="openTaskModal()">➕ Nouvelle Tâche</button>
+      </div>
+      <div id="alertBox" class="alert-box mt-3"></div>
+    </div>
+
+    <!-- Liste des tâches -->
+    <div id="taskList" class="space-y-3"></div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB: TABLEAU DE BORD                         -->
+  <!-- ============================================ -->
+  <section id="tab-dashboard" class="hidden">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <!-- Sommeil Nocturne -->
+      <div class="card pdf-section">
+        <h3 class="font-bold mb-2">😴 Sommeil Nocturne</h3>
+        <div class="flex gap-2 mb-2">
+          <input type="time" id="bedTime" placeholder="Coucher" />
+          <input type="time" id="wakeTime" placeholder="Réveil" />
+          <button class="btn-primary" onclick="addSleep()">Enregistrer</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="sleepChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Siestes -->
+      <div class="card pdf-section">
+        <h3 class="font-bold mb-2">💤 Siestes</h3>
+        <div class="flex gap-2 mb-2 flex-wrap">
+          <input type="time" id="napStart" placeholder="Début" />
+          <input type="number" id="napDuration" placeholder="Durée (min)" min="1" style="width:120px" />
+          <button class="btn-primary" onclick="addNap()">Enregistrer</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="napChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Discipline Sportive -->
+      <div class="card pdf-section">
+        <h3 class="font-bold mb-2">💪 Discipline Sportive (Quota Hebdo)</h3>
+        <div class="flex gap-2 mb-2 flex-wrap items-center">
+          <label class="text-sm" style="color:var(--muted)">Quota/semaine :</label>
+          <input type="number" id="sportQuota" value="4" min="1" max="7" style="width:60px" onchange="updateSportQuota()" />
+          <button class="btn-success" onclick="logSport(true)">✅ Séance faite</button>
+          <button class="btn-danger" onclick="logSport(false)">❌ Séance ratée</button>
+        </div>
+        <div class="chart-container">
+          <canvas id="sportChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Suivi Global par Tâche -->
+      <div class="card pdf-section">
+        <h3 class="font-bold mb-2">📈 Suivi Global par Tâche</h3>
+        <div class="chart-container">
+          <canvas id="taskChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Métriques Sommeil -->
+    <div class="card mb-4 pdf-section">
+      <h3 class="font-bold mb-3">📊 Métriques de Sommeil</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <div>
+          <p class="text-2xl font-bold" id="avgSleepDuration">--</p>
+          <p class="text-xs" style="color:var(--muted)">Moy. Sommeil (h)</p>
+        </div>
+        <div>
+          <p class="text-2xl font-bold" id="avgBedTime">--</p>
+          <p class="text-xs" style="color:var(--muted)">Heure moy. Coucher</p>
+        </div>
+        <div>
+          <p class="text-2xl font-bold" id="avgWakeTime">--</p>
+          <p class="text-xs" style="color:var(--muted)">Heure moy. Réveil</p>
+        </div>
+        <div>
+          <p class="text-2xl font-bold" id="avgNapDuration">--</p>
+          <p class="text-xs" style="color:var(--muted)">Moy. Sieste (min)</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB: ARCHIVES & RAPPORTS                     -->
+  <!-- ============================================ -->
+  <section id="tab-archives" class="hidden">
+    <div class="card mb-4">
+      <h3 class="font-bold mb-3">📁 Gestion des Archives & Rapports</h3>
+      <div class="flex gap-2 mb-4 flex-wrap">
+        <select id="archivePeriod" onchange="renderArchives()">
+          <option value="week">Cette Semaine</option>
+          <option value="month">Ce Mois</option>
+          <option value="lastMonth">Mois Précédent</option>
+        </select>
+        <button class="btn-primary" onclick="exportPDF()">📄 Exporter le Rapport en PDF</button>
+      </div>
+      <div id="archiveContent"></div>
+    </div>
+
+    <!-- Zone d'export PDF (cachée visuellement mais utilisée par html2pdf) -->
+    <div id="pdfExportZone" style="position:absolute; left:-9999px; top:-9999px; width:800px; background:#fff; color:#0f172a; padding:2rem;">
+      <div style="text-align:center; margin-bottom:2rem;">
+        <h1 style="font-size:1.5rem; font-weight:bold; margin-bottom:0.5rem;">Rapport de Productivité</h1>
+        <p id="pdfDateRange" style="color:#64748b;"></p>
+      </div>
+      <div id="pdfChartsArea"></div>
+      <div id="pdfTasksArea" style="margin-top:2rem;"></div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============================================ -->
+<!-- MODAL: AJOUTER UNE TÂCHE                     -->
+<!-- ============================================ -->
+<div id="taskModal" class="modal-overlay">
+  <div class="modal-content">
+    <h3 class="text-lg font-bold mb-4">➕ Nouvelle Tâche</h3>
+    <div class="space-y-3">
+      <div>
+        <label class="text-sm font-semibold block mb-1">Nom de la tâche</label>
+        <input type="text" id="taskName" placeholder="Ex: Prières à la Mosquée" style="width:100%" />
+      </div>
+      <div>
+        <label class="text-sm font-semibold block mb-1">Type de tâche</label>
+        <select id="taskType" style="width:100%">
+          <option value="red">🔴 Unique / RDV (Rouge)</option>
+          <option value="orange">🟠 Mensuelle (Orange)</option>
+          <option value="yellow">🟡 Hebdomadaire (Jaune)</option>
+          <option value="green">🟢 Quotidienne (Vert)</option>
+          <option value="blue">🔵 Flottante (Bleu)</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-semibold block mb-1">Date (optionnelle pour flottantes)</label>
+        <input type="date" id="taskDate" style="width:100%" />
+      </div>
+      <div>
+        <label class="text-sm font-semibold block mb-1">Structure</label>
+        <select id="taskStructure" style="width:100%" onchange="toggleSubcases()">
+          <option value="simple">Tâche simple (1 case)</option>
+          <option value="complex">Tâche complexe (sous-cases)</option>
+        </select>
+      </div>
+      <div id="subcasesContainer" class="hidden">
+        <label class="text-sm font-semibold block mb-1">Sous-cases (séparées par virgule)</label>
+        <input type="text" id="subcaseNames" placeholder="Sobh, Dohr, Asr, Maghreb, Icha" style="width:100%" />
+      </div>
+    </div>
+    <div class="flex gap-2 mt-5 justify-end">
+      <button class="tab-btn" onclick="closeTaskModal()">Annuler</button>
+      <button class="btn-primary" onclick="saveTask()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================ -->
+<!-- JAVASCRIPT COMPLET                             -->
+<!-- ============================================ -->
+<script>
+// ============================================================
+// DONNÉES & ÉTAT
+// ============================================================
+const TYPE_ORDER = ['red', 'orange', 'yellow', 'green', 'blue'];
+const TYPE_LABELS = { red: 'Unique/RDV', orange: 'Mensuelle', yellow: 'Hebdomadaire', green: 'Quotidienne', blue: 'Flottante' };
+const TYPE_COLORS = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e', blue: '#3b82f6' };
+const TYPE_CLASSES = { red: 'redTask', orange: 'orangeTask', yellow: 'yellowTask', green: 'greenTask', blue: 'blueTask' };
+const TYPE_BADGES = { red: 'badge-red', orange: 'badge-orange', yellow: 'badge-yellow', green: 'badge-green', blue: 'badge-blue' };
+
+let tasks = [];
+let sleepData = [];
+let napData = [];
+let sportData = [];
+let sportQuota = 4;
+let taskHistory = {};
+let streaks = { orange: 0, yellow: 0, green: 0 };
+let chartInstances = {};
+
+// ============================================================
+// UTILITAIRES
+// ============================================================
+function getTodayStr() {
+  const d = new Date();
+  return d.toISOString().split('T')[0];
+}
+function getWeekStartStr(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return monday.toISOString().split('T')[0];
+}
+function getMonthStartStr(dateStr) {
+  return dateStr.slice(0, 7) + '-01';
+}
+function getWeekNumber(dateStr) {
+  const d = new Date(dateStr);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  const yearStart = new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+function formatDateFr(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+function timeToMinutes(timeStr) {
+  const [h,m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+function minutesToTime(minutes) {
+  const h = Math.floor(minutes / 60) % 24;
+  const m = minutes % 60;
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+}
+function sleepDuration(bed, wake) {
+  let bedM = timeToMinutes(bed);
+  let wakeM = timeToMinutes(wake);
+  if (wakeM < bedM) wakeM += 24 * 60;
+  return (wakeM - bedM) / 60;
+}
+function loadData() {
+  try {
+    const t = localStorage.getItem('prod_tasks');
+    const s = localStorage.getItem('prod_sleep');
+    const n = localStorage.getItem('prod_naps');
+    const sp = localStorage.getItem('prod_sport');
+    const sq = localStorage.getItem('prod_sportQuota');
+    const th = localStorage.getItem('prod_taskHistory');
+    const st = localStorage.getItem('prod_streaks');
+    if (t) tasks = JSON.parse(t);
+    if (s) sleepData = JSON.parse(s);
+    if (n) napData = JSON.parse(n);
+    if (sp) sportData = JSON.parse(sp);
+    if (sq) sportQuota = parseInt(sq);
+    if (th) taskHistory = JSON.parse(th);
+    if (st) streaks = JSON.parse(st);
+  } catch(e) {}
+}
+function saveData() {
+  localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+  localStorage.setItem('prod_sleep', JSON.stringify(sleepData));
+  localStorage.setItem('prod_naps', JSON.stringify(napData));
+  localStorage.setItem('prod_sport', JSON.stringify(sportData));
+  localStorage.setItem('prod_sportQuota', String(sportQuota));
+  localStorage.setItem('prod_taskHistory', JSON.stringify(taskHistory));
+  localStorage.setItem('prod_streaks', JSON.stringify(streaks));
+}
+
+// ============================================================
+// THÈME
+// ============================================================
+function initTheme() {
+  const saved = localStorage.getItem('prod_theme');
+  if (saved === 'dark') document.documentElement.classList.add('dark');
+  updateThemeIcon();
+}
+document.getElementById('themeToggle').addEventListener('click', () => {
+  document.documentElement.classList.toggle('dark');
+  localStorage.setItem('prod_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+  updateThemeIcon();
+  setTimeout(() => { initCharts(); renderTasks(); renderArchives(); }, 100);
+});
+function updateThemeIcon() {
+  document.getElementById('themeIcon').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  ['tasks','dashboard','archives'].forEach(t => {
+    document.getElementById('tab-' + t).classList.add('hidden');
+  });
+  document.getElementById('tab-' + tab).classList.remove('hidden');
+  if (tab === 'dashboard') {
+    setTimeout(initCharts, 50);
+  }
+  if (tab === 'archives') {
+    renderArchives();
+  }
+}
+
+// ============================================================
+// TÂCHES - LOGIQUE PRINCIPALE
+// ============================================================
+function getTasksForDate(dateStr) {
+  const today = getTodayStr();
+  const weekStart = getWeekStartStr(dateStr);
+  const monthStart = getMonthStartStr(dateStr);
+
+  return tasks.filter(t => {
+    if (t.type === 'red') return t.date === dateStr;
+    if (t.type === 'orange') {
+      return t.date && t.date.slice(0,7) === dateStr.slice(0,7);
+    }
+    if (t.type === 'yellow') {
+      return t.date && getWeekStartStr(t.date) === weekStart;
+    }
+    if (t.type === 'green') return true;
+    if (t.type === 'blue') {
+      // Flottantes : si non complétées, apparaissent toujours aujourd'hui
+      if (t.completed || (t.subcases && t.subcases.every(s => s.done))) {
+        return t.completedDate === dateStr;
+      }
+      return true;
+    }
+    return false;
+  }).map(t => ({ ...t }));
+}
+
+function renderTasks() {
+  const today = getTodayStr();
+  document.getElementById('currentDateDisplay').textContent = formatDateFr(today);
+  document.getElementById('weekInfo').textContent = 'Semaine ' + getWeekNumber(today);
+
+  // Alertes pour demain
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const alerts = [];
+  tasks.forEach(t => {
+    if (t.type === 'red' && t.date === tomorrowStr) alerts.push(`🔴 RDV demain : ${t.name}`);
+    if (t.type === 'orange' && t.date && t.date.slice(0,7) === tomorrowStr.slice(0,7)) alerts.push(`🟠 Tâche mensuelle : ${t.name}`);
+    if (t.type === 'yellow' && t.date && getWeekStartStr(t.date) === getWeekStartStr(tomorrowStr)) alerts.push(`🟡 Tâche hebdo : ${t.name}`);
+  });
+  const alertBox = document.getElementById('alertBox');
+  if (alerts.length > 0) {
+    alertBox.innerHTML = '<strong>⚠️ Alertes pour demain :</strong><br>' + alerts.join('<br>');
+    alertBox.style.display = 'block';
+  } else {
+    alertBox.style.display = 'none';
+  }
+
+  // Rendu des tâches triées par couleur
+  const todayTasks = getTasksForDate(today);
+  const container = document.getElementById('taskList');
+  container.innerHTML = '';
+
+  if (todayTasks.length === 0) {
+    container.innerHTML = '<div class="card text-center" style="color:var(--muted)">Aucune tâche pour aujourd'hui. Ajoutez-en une !</div>';
+    return;
+  }
+
+  const sorted = todayTasks.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
+
+  sorted.forEach(task => {
+    const isComplex = task.subcases && task.subcases.length > 0;
+    const totalSub = isComplex ? task.subcases.length : 1;
+    const doneSub = isComplex ? task.subcases.filter(s => s.done).length : (task.completed ? 1 : 0);
+    const pct = Math.round((doneSub / totalSub) * 100);
+
+    const el = document.createElement('div');
+    el.className = 'task-item';
+    el.style.borderLeft = '4px solid ' + TYPE_COLORS[task.type];
+
+    let subcasesHtml = '';
+    if (isComplex) {
+      subcasesHtml = '<div class="flex gap-2 flex-wrap mt-2">' +
+        task.subcases.map((sc, idx) => {
+          const cls = sc.done ? 'done ' + TYPE_CLASSES[task.type] : '';
+          return `<div class="subcase ${cls}" onclick="toggleSubcase('${task.id}', ${idx})">${sc.name}</div>`;
+        }).join('') +
+      '</div>';
+    }
+
+    let streakHtml = '';
+    if (['orange','yellow','green'].includes(task.type)) {
+      streakHtml = `<span class="streak"><span class="streak-fire">🔥</span> ${streaks[task.type] || 0}j</span>`;
+    }
+
+    el.innerHTML = `
+      <div class="checkbox-main ${task.completed && !isComplex ? 'done' : ''}" style="color:${TYPE_COLORS[task.type]}" onclick="toggleTask('${task.id}')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold truncate">${task.name}</span>
+          <span class="badge ${TYPE_BADGES[task.type]}">${TYPE_LABELS[task.type]}</span>
+          ${task.date ? `<span class="text-xs" style="color:var(--muted)">${task.date}</span>` : ''}
+          ${streakHtml}
+        </div>
+        ${subcasesHtml}
+        ${isComplex ? `<div class="mt-2"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%; background:${TYPE_COLORS[task.type]}"></div></div><span class="text-xs" style="color:var(--muted)">${pct}%</span></div>` : ''}
+      </div>
+      <button class="text-sm" style="color:var(--muted); background:none; border:none; cursor:pointer;" onclick="deleteTask('${task.id}')" title="Supprimer">🗑️</button>
+    `;
+    container.appendChild(el);
+  });
+}
+
+function toggleTask(id) {
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  if (task.subcases && task.subcases.length > 0) return; // complex tasks use subcases
+  task.completed = !task.completed;
+  if (task.completed) task.completedDate = getTodayStr();
+  recordTaskHistory(task);
+  updateStreaks();
+  saveData();
+  renderTasks();
+}
+
+function toggleSubcase(taskId, subIdx) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task || !task.subcases) return;
+  task.subcases[subIdx].done = !task.subcases[subIdx].done;
+  const allDone = task.subcases.every(s => s.done);
+  task.completed = allDone;
+  if (allDone) task.completedDate = getTodayStr();
+  recordTaskHistory(task);
+  updateStreaks();
+  saveData();
+  renderTasks();
+}
+
+function recordTaskHistory(task) {
+  const today = getTodayStr();
+  if (!taskHistory[today]) taskHistory[today] = {};
+  const total = task.subcases ? task.subcases.length : 1;
+  const done = task.subcases ? task.subcases.filter(s => s.done).length : (task.completed ? 1 : 0);
+  taskHistory[today][task.id] = { name: task.name, type: task.type, total, done, pct: Math.round((done/total)*100) };
+}
+
+function updateStreaks() {
+  const today = getTodayStr();
+  const types = ['orange', 'yellow', 'green'];
+  types.forEach(type => {
+    const typeTasks = tasks.filter(t => t.type === type);
+    if (typeTasks.length === 0) { streaks[type] = 0; return; }
+    let streak = 0;
+    let checkDate = new Date(today);
+    while (true) {
+      const dateStr = checkDate.toISOString().split('T')[0];
+      const dayTasks = getTasksForDate(dateStr).filter(t => t.type === type);
+      if (dayTasks.length === 0) break;
+      const allDone = dayTasks.every(t => {
+        if (t.subcases) return t.subcases.every(s => s.done);
+        return t.completed;
+      });
+      if (!allDone) break;
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+    streaks[type] = streak;
+  });
+}
+
+function deleteTask(id) {
+  if (!confirm('Supprimer cette tâche ?')) return;
+  tasks = tasks.filter(t => t.id !== id);
+  saveData();
+  renderTasks();
+}
+
+// ============================================================
+// MODAL TÂCHE
+// ============================================================
+function openTaskModal() {
+  document.getElementById('taskModal').classList.add('open');
+  document.getElementById('taskName').value = '';
+  document.getElementById('taskType').value = 'green';
+  document.getElementById('taskDate').value = getTodayStr();
+  document.getElementById('taskStructure').value = 'simple';
+  document.getElementById('subcaseNames').value = '';
+  toggleSubcases();
+}
+function closeTaskModal() {
+  document.getElementById('taskModal').classList.remove('open');
+}
+function toggleSubcases() {
+  const isComplex = document.getElementById('taskStructure').value === 'complex';
+  document.getElementById('subcasesContainer').classList.toggle('hidden', !isComplex);
+}
+function saveTask() {
+  const name = document.getElementById('taskName').value.trim();
+  const type = document.getElementById('taskType').value;
+  const date = document.getElementById('taskDate').value;
+  const structure = document.getElementById('taskStructure').value;
+  const subcaseNames = document.getElementById('subcaseNames').value.trim();
+
+  if (!name) { alert('Veuillez entrer un nom de tâche'); return; }
+
+  let subcases = null;
+  if (structure === 'complex' && subcaseNames) {
+    subcases = subcaseNames.split(',').map(s => ({ name: s.trim(), done: false })).filter(s => s.name);
+  }
+
+  const task = {
+    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2,9),
+    name,
+    type,
+    date: date || null,
+    completed: false,
+    completedDate: null,
+    subcases,
+    createdAt: getTodayStr()
+  };
+
+  tasks.push(task);
+  saveData();
+  closeTaskModal();
+  renderTasks();
+}
+
+// ============================================================
+// TABLEAU DE BORD - SOMMEIL
+// ============================================================
+function addSleep() {
+  const bed = document.getElementById('bedTime').value;
+  const wake = document.getElementById('wakeTime').value;
+  if (!bed || !wake) { alert('Veuillez renseigner les deux horaires'); return; }
+  const duration = sleepDuration(bed, wake);
+  sleepData.push({ date: getTodayStr(), bed, wake, duration });
+  saveData();
+  updateSleepMetrics();
+  renderSleepChart();
+}
+function updateSleepMetrics() {
+  if (sleepData.length === 0) {
+    document.getElementById('avgSleepDuration').textContent = '--';
+    document.getElementById('avgBedTime').textContent = '--';
+    document.getElementById('avgWakeTime').textContent = '--';
+    return;
+  }
+  const avgDur = sleepData.reduce((a,b) => a + b.duration, 0) / sleepData.length;
+  const avgBed = sleepData.reduce((a,b) => a + timeToMinutes(b.bed), 0) / sleepData.length;
+  const avgWake = sleepData.reduce((a,b) => a + timeToMinutes(b.wake), 0) / sleepData.length;
+  document.getElementById('avgSleepDuration').textContent = avgDur.toFixed(1) + 'h';
+  document.getElementById('avgBedTime').textContent = minutesToTime(Math.round(avgBed));
+  document.getElementById('avgWakeTime').textContent = minutesToTime(Math.round(avgWake));
+}
+
+// ============================================================
+// TABLEAU DE BORD - SIESTES
+// ============================================================
+function addNap() {
+  const start = document.getElementById('napStart').value;
+  const duration = parseInt(document.getElementById('napDuration').value);
+  if (!start || !duration) { alert('Veuillez renseigner l'heure et la durée'); return; }
+  napData.push({ date: getTodayStr(), start, duration });
+  saveData();
+  updateNapMetrics();
+  renderNapChart();
+}
+function updateNapMetrics() {
+  if (napData.length === 0) {
+    document.getElementById('avgNapDuration').textContent = '--';
+    return;
+  }
+  const avg = napData.reduce((a,b) => a + b.duration, 0) / napData.length;
+  document.getElementById('avgNapDuration').textContent = Math.round(avg) + ' min';
+}
+
+// ============================================================
+// TABLEAU DE BORD - SPORT
+// ============================================================
+function updateSportQuota() {
+  sportQuota = parseInt(document.getElementById('sportQuota').value) || 4;
+  saveData();
+  renderSportChart();
+}
+function logSport(done) {
+  sportData.push({ date: getTodayStr(), done });
+  saveData();
+  renderSportChart();
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+function destroyChart(key) {
+  if (chartInstances[key]) { chartInstances[key].destroy(); delete chartInstances[key]; }
+}
+function getChartColors() {
+  const isDark = document.documentElement.classList.contains('dark');
+  return {
+    text: isDark ? '#f1f5f9' : '#0f172a',
+    grid: isDark ? '#334155' : '#e2e8f0',
+    tooltipBg: isDark ? '#1e293b' : '#ffffff',
+    tooltipText: isDark ? '#f1f5f9' : '#0f172a'
+  };
+}
+function renderSleepChart() {
+  destroyChart('sleep');
+  const ctx = document.getElementById('sleepChart').getContext('2d');
+  const c = getChartColors();
+  const recent = sleepData.slice(-14);
+  chartInstances.sleep = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: recent.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Durée (h)',
+        data: recent.map(d => d.duration),
+        backgroundColor: '#3b82f6',
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: c.text } } },
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true }
+      }
+    }
+  });
+}
+function renderNapChart() {
+  destroyChart('nap');
+  const ctx = document.getElementById('napChart').getContext('2d');
+  const c = getChartColors();
+  const recent = napData.slice(-14);
+  chartInstances.nap = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: recent.map(d => d.date.slice(5)),
+      datasets: [{
+        label: 'Durée sieste (min)',
+        data: recent.map(d => d.duration),
+        borderColor: '#f59e0b',
+        backgroundColor: 'rgba(245,158,11,0.2)',
+        fill: true, tension: 0.3, pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: c.text } } },
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true }
+      }
+    }
+  });
+}
+function renderSportChart() {
+  destroyChart('sport');
+  const ctx = document.getElementById('sportChart').getContext('2d');
+  const c = getChartColors();
+
+  // Grouper par semaine
+  const weekMap = {};
+  sportData.forEach(d => {
+    const w = getWeekStartStr(d.date);
+    if (!weekMap[w]) weekMap[w] = { done: 0, total: 0 };
+    weekMap[w].total++;
+    if (d.done) weekMap[w].done++;
+  });
+  const weeks = Object.keys(weekMap).sort().slice(-8);
+  const doneArr = weeks.map(w => weekMap[w].done);
+  const missedArr = weeks.map(w => weekMap[w].total - weekMap[w].done);
+  const successRate = weeks.map(w => {
+    const r = weekMap[w];
+    return r.total > 0 ? Math.round((r.done / Math.max(r.total, sportQuota)) * 100) : 0;
+  });
+
+  chartInstances.sport = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: weeks.map(w => 'S' + getWeekNumber(w)),
+      datasets: [
+        { label: 'Faits', data: doneArr, backgroundColor: '#22c55e', borderRadius: 4 },
+        { label: 'Ratés', data: missedArr, backgroundColor: '#ef4444', borderRadius: 4 },
+        { label: 'Taux %', data: successRate, type: 'line', borderColor: '#3b82f6', yAxisID: 'y1', pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: c.text } } },
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true, stacked: true },
+        y1: { position: 'right', ticks: { color: c.text }, grid: { display: false }, min: 0, max: 100 }
+      }
+    }
+  });
+}
+function renderTaskChart() {
+  destroyChart('task');
+  const ctx = document.getElementById('taskChart').getContext('2d');
+  const c = getChartColors();
+
+  // Derniers 14 jours
+  const dates = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+
+  const taskNames = [...new Set(tasks.map(t => t.name))];
+  const datasets = taskNames.map((name, idx) => {
+    const task = tasks.find(t => t.name === name);
+    const color = TYPE_COLORS[task?.type || 'blue'];
+    const data = dates.map(date => {
+      const hist = taskHistory[date];
+      if (!hist) return 0;
+      const entry = Object.values(hist).find(h => h.name === name);
+      return entry ? entry.pct : 0;
+    });
+    return { label: name, data, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3, pointRadius: 3 };
+  });
+
+  chartInstances.task = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dates.map(d => d.slice(5)), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: c.text }, position: 'bottom' } },
+      scales: {
+        x: { ticks: { color: c.text }, grid: { color: c.grid } },
+        y: { ticks: { color: c.text }, grid: { color: c.grid }, min: 0, max: 100 }
+      }
+    }
+  });
+}
+function initCharts() {
+  updateSleepMetrics();
+  updateNapMetrics();
+  renderSleepChart();
+  renderNapChart();
+  renderSportChart();
+  renderTaskChart();
+}
+
+// ============================================================
+// ARCHIVES & RAPPORTS
+// ============================================================
+function renderArchives() {
+  const period = document.getElementById('archivePeriod').value;
+  const today = getTodayStr();
+  let startDate, endDate;
+
+  if (period === 'week') {
+    startDate = getWeekStartStr(today);
+    endDate = today;
+  } else if (period === 'month') {
+    startDate = getMonthStartStr(today);
+    endDate = today;
+  } else {
+    const d = new Date(today);
+    d.setMonth(d.getMonth() - 1);
+    startDate = d.toISOString().split('T')[0].slice(0,7) + '-01';
+    const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0);
+    endDate = lastDay.toISOString().split('T')[0];
+  }
+
+  // Collecter toutes les tâches complétées dans la période
+  const completedTasks = [];
+  Object.entries(taskHistory).forEach(([date, hist]) => {
+    if (date >= startDate && date <= endDate) {
+      Object.entries(hist).forEach(([taskId, entry]) => {
+        if (entry.pct === 100) {
+          completedTasks.push({ date, ...entry });
+        }
+      });
+    }
+  });
+
+  // Grouper par type
+  const byType = { red: [], orange: [], yellow: [], green: [], blue: [] };
+  completedTasks.forEach(t => { if (byType[t.type]) byType[t.type].push(t); });
+
+  const container = document.getElementById('archiveContent');
+  let html = `<div class="mb-4"><strong>Période :</strong> ${formatDateFr(startDate)} → ${formatDateFr(endDate)}</div>`;
+
+  TYPE_ORDER.forEach(type => {
+    const list = byType[type];
+    html += `<div class="card mb-3" style="border-left:4px solid ${TYPE_COLORS[type]}">`;
+    html += `<h4 class="font-bold mb-2">${TYPE_LABELS[type]} (${list.length} tâche${list.length > 1 ? 's' : ''})</h4>`;
+    if (list.length === 0) {
+      html += '<p style="color:var(--muted)" class="text-sm">Aucune tâche accomplie</p>';
+    } else {
+      html += '<ul class="space-y-1">';
+      list.forEach(t => {
+        html += `<li class="text-sm">✅ <strong>${t.name}</strong> — ${formatDateFr(t.date)}</li>`;
+      });
+      html += '</ul>';
+    }
+    html += '</div>';
+  });
+
+  // Stats globales
+  const totalCompleted = completedTasks.length;
+  const totalTasks = Object.values(taskHistory).reduce((a, hist) => a + Object.keys(hist).length, 0);
+  html += `<div class="card"><h4 class="font-bold mb-2">📊 Statistiques Globales</h4>`;
+  html += `<p class="text-sm">Tâches complétées : <strong>${totalCompleted}</strong> / ${totalTasks}</p>`;
+  html += `<p class="text-sm">Taux de réussite : <strong>${totalTasks > 0 ? Math.round((totalCompleted/totalTasks)*100) : 0}%</strong></p></div>`;
+
+  container.innerHTML = html;
+}
+
+function exportPDF() {
+  const period = document.getElementById('archivePeriod').value;
+  const today = getTodayStr();
+  let startDate, endDate;
+  if (period === 'week') { startDate = getWeekStartStr(today); endDate = today; }
+  else if (period === 'month') { startDate = getMonthStartStr(today); endDate = today; }
+  else {
+    const d = new Date(today); d.setMonth(d.getMonth()-1);
+    startDate = d.toISOString().split('T')[0].slice(0,7)+'-01';
+    endDate = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+  }
+
+  // Préparer le contenu PDF
+  const pdfZone = document.getElementById('pdfExportZone');
+  document.getElementById('pdfDateRange').textContent = `${formatDateFr(startDate)} — ${formatDateFr(endDate)}`;
+
+  // Copier les métriques
+  const metricsHtml = `
+    <div style="margin-bottom:1.5rem;">
+      <h2 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Métriques de Sommeil</h2>
+      <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+        <div><strong>${document.getElementById('avgSleepDuration').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Moy. Sommeil</span></div>
+        <div><strong>${document.getElementById('avgBedTime').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Heure moy. Coucher</span></div>
+        <div><strong>${document.getElementById('avgWakeTime').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Heure moy. Réveil</span></div>
+        <div><strong>${document.getElementById('avgNapDuration').textContent}</strong><br><span style="color:#64748b; font-size:0.85rem;">Moy. Sieste</span></div>
+      </div>
+    </div>
+  `;
+
+  // Copier les graphiques (on prend les canvas et on les convertit en images)
+  const chartsArea = document.getElementById('pdfChartsArea');
+  chartsArea.innerHTML = metricsHtml;
+
+  ['sleepChart','napChart','sportChart','taskChart'].forEach(id => {
+    const canvas = document.getElementById(id);
+    if (canvas) {
+      const img = document.createElement('img');
+      img.src = canvas.toDataURL('image/png');
+      img.style.width = '100%';
+      img.style.maxWidth = '700px';
+      img.style.marginBottom = '1.5rem';
+      chartsArea.appendChild(img);
+    }
+  });
+
+  // Historique des tâches
+  const tasksArea = document.getElementById('pdfTasksArea');
+  let tasksHtml = '<h2 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Historique des Tâches</h2>';
+  const allDates = Object.keys(taskHistory).filter(d => d >= startDate && d <= endDate).sort();
+  if (allDates.length === 0) {
+    tasksHtml += '<p style="color:#64748b;">Aucune donnée pour cette période.</p>';
+  } else {
+    tasksHtml += '<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">';
+    tasksHtml += '<thead><tr style="background:#f1f5f9;"><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Date</th><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Tâche</th><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Type</th><th style="padding:0.5rem; text-align:left; border:1px solid #e2e8f0;">Complétion</th></tr></thead><tbody>';
+    allDates.forEach(date => {
+      Object.values(taskHistory[date]).forEach(entry => {
+        const typeLabel = TYPE_LABELS[entry.type] || entry.type;
+        tasksHtml += `<tr><td style="padding:0.5rem; border:1px solid #e2e8f0;">${date}</td><td style="padding:0.5rem; border:1px solid #e2e8f0;">${entry.name}</td><td style="padding:0.5rem; border:1px solid #e2e8f0;">${typeLabel}</td><td style="padding:0.5rem; border:1px solid #e2e8f0;">${entry.pct}%</td></tr>`;
+      });
+    });
+    tasksHtml += '</tbody></table>';
+  }
+  tasksArea.innerHTML = tasksHtml;
+
+  // Générer le PDF
+  const opt = {
+    margin: [10, 10, 10, 10],
+    filename: `Rapport_Productivite_${startDate}_${endDate}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  html2pdf().set(opt).from(pdfZone).save().then(() => {
+    // Nettoyer
+    document.getElementById('pdfChartsArea').innerHTML = '';
+    document.getElementById('pdfTasksArea').innerHTML = '';
+  });
+}
+
+// ============================================================
+// ENREGISTREMENT JOURNALIER (0% si non complété)
+// ============================================================
+function dailyCheck() {
+  const today = getTodayStr();
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yestStr = yesterday.toISOString().split('T')[0];
+
+  if (!taskHistory[yestStr]) {
+    // Aucune donnée pour hier, enregistrer 0% pour toutes les tâches actives
+    const yestTasks = getTasksForDate(yestStr);
+    if (yestTasks.length > 0) {
+      taskHistory[yestStr] = {};
+      yestTasks.forEach(t => {
+        const total = t.subcases ? t.subcases.length : 1;
+        const done = t.subcases ? t.subcases.filter(s => s.done).length : (t.completed ? 1 : 0);
+        taskHistory[yestStr][t.id] = { name: t.name, type: t.type, total, done, pct: Math.round((done/total)*100) };
+      });
+      saveData();
+    }
+  }
+}
+
+// ============================================================
+// DONNÉES DE DÉMONSTRATION
+// ============================================================
+function seedDemoData() {
+  if (tasks.length > 0) return;
+  const today = getTodayStr();
+  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+  tasks = [
+    { id: 't1', name: 'RDV Client - Ferme Dupont', type: 'red', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
+    { id: 't2', name: 'Jeûne (3x/mois)', type: 'orange', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
+    { id: 't3', name: 'Séance Calisthénie', type: 'yellow', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
+    { id: 't4', name: 'Prières à la Mosquée', type: 'green', date: null, completed: false, completedDate: null, subcases: [
+      { name: 'Sobh', done: false }, { name: 'Dohr', done: false }, { name: 'Asr', done: false }, { name: 'Maghreb', done: false }, { name: 'Icha', done: false }
+    ], createdAt: today },
+    { id: 't5', name: 'Adkar Matin & Soir', type: 'green', date: null, completed: false, completedDate: null, subcases: [
+      { name: 'Matin', done: false }, { name: 'Soir', done: false }
+    ], createdAt: today },
+    { id: 't6', name: 'Révision article vétérinaire', type: 'blue', date: null, completed: false, completedDate: null, subcases: null, createdAt: today },
+    { id: 't7', name: 'Vaccin rappel chien', type: 'red', date: tomorrowStr, completed: false, completedDate: null, subcases: null, createdAt: today },
+  ];
+
+  // Données de sommeil démo
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ds = d.toISOString().split('T')[0];
+    sleepData.push({ date: ds, bed: '23:00', wake: '06:30', duration: 7.5 });
+  }
+
+  // Données de sieste démo
+  napData.push({ date: today, start: '14:00', duration: 20 });
+
+  // Données sport démo
+  sportData.push({ date: today, done: true });
+  const d2 = new Date(); d2.setDate(d2.getDate()-2);
+  sportData.push({ date: d2.toISOString().split('T')[0], done: true });
+  const d3 = new Date(); d3.setDate(d3.getDate()-3);
+  sportData.push({ date: d3.toISOString().split('T')[0], done: false });
+
+  saveData();
+}
+
+// ============================================================
+// INITIALISATION
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  loadData();
+  seedDemoData();
+  initTheme();
+  renderTasks();
+  dailyCheck();
+  updateStreaks();
+  // Vérification quotidienne
+  setInterval(dailyCheck, 60000);
+});
+</script>
+
+</body>
+      </html>
