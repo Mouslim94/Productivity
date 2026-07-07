@@ -28,321 +28,298 @@
     };
   </script>
   <style>
-    :root { --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; --border: #e2e8f0; }
-    .dark { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; }
-    body { background: var(--bg); color: var(--text); transition: background 0.3s, color 0.3s; }
+    :root { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --muted: #94a3b8; --border: #334155; }
+    body { background: var(--bg); color: var(--text); transition: background 0.3s, color 0.3s; font-family: system-ui, -apple-system, sans-serif; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.25rem; }
-    .subcase { width: 48px; height: 48px; border: 2px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 700; text-align: center; cursor: pointer; transition: all 0.2s; user-select: none; }
-    .subcase.done { border-color: transparent; color: #fff; }
-    .subcase.done.redTask { background: #ef4444; }
-    .subcase.done.orangeTask { background: #f97316; }
-    .subcase.done.yellowTask { background: #eab308; color: #0f172a; }
-    .subcase.done.greenTask { background: #22c55e; }
-    .subcase.done.blueTask { background: #3b82f6; }
-    .dark .subcase:not(.done) { color: #f1f5f9; }
-    .dark .subcase.done.yellowTask { color: #0f172a; }
-    .tab-btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-    .tab-btn.active { background: #3b82f6; color: #fff; }
-    .tab-btn:not(.active):hover { background: var(--border); }
-    .btn-primary { background: #3b82f6; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
+    
+    /* Boutons de sous-séances nommées (PPL) */
+    .subcase-btn { padding: 0.5rem 0.75rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-align: center; }
+    .subcase-btn.done { border-color: transparent; color: #fff; }
+    .subcase-btn.done.yellowTask { background: #eab308; color: #0f172a; }
+    .subcase-btn.done.orangeTask { background: #f97316; }
+    
+    .tab-btn { padding: 0.6rem 1.2rem; border-radius: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.2s; background: #1e293b; border: 1px solid #334155; }
+    .tab-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+    
+    .btn-primary { background: #3b82f6; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
     .btn-primary:hover { background: #2563eb; }
-    .btn-danger { background: #ef4444; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; }
-    .btn-danger:hover { background: #dc2626; }
-    .btn-success { background: #22c55e; color: #fff; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; }
-    .btn-success:hover { background: #16a34a; }
-    input, select { background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 0.75rem; outline: none; }
-    input:focus, select:focus { border-color: #3b82f6; }
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 50; }
+    
+    input, select { background: #0f172a; color: var(--text); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem 0.75rem; outline: none; }
+    
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 50; padding: 1rem; }
     .modal-overlay.open { display: flex; }
-    .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-    .task-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; border-radius: 0.75rem; border: 1px solid var(--border); margin-bottom: 0.5rem; transition: background 0.2s; }
-    .checkbox-main { width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .checkbox-main.done { background: currentColor; border-color: transparent; }
-    .checkbox-main svg { display: none; }
-    .checkbox-main.done svg { display: block; }
-    .chart-container { position: relative; height: 220px; }
-    .badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
-    .badge-red { background: #fee2e2; color: #991b1b; }
-    .badge-orange { background: #ffedd5; color: #9a3412; }
-    .badge-yellow { background: #fef9c3; color: #854d0e; }
-    .badge-green { background: #dcfce7; color: #166534; }
-    .badge-blue { background: #dbeafe; color: #1e40af; }
-    .progress-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .modal-content { background: var(--card); border: 1px solid var(--border); border-radius: 1rem; padding: 1.5rem; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+    
+    .task-item { display: flex; align-items: center; gap: 0.75rem; padding: 1rem; border-radius: 0.75rem; border: 1px solid var(--border); background: #1e293b; margin-bottom: 0.5rem; }
+    
+    /* Styles Calendrier Agenda Widget */
+    .widget-calendar { background: #151f32; border: 1px solid #24344d; border-radius: 1.5rem; padding: 1.5rem; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; text-align: center; }
+    .calendar-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 50%; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
+    .calendar-cell:hover { background: #24344d; }
+    .calendar-cell.active { background: #e15b34; color: white; }
+    .calendar-cell.muted { color: #475569; }
+    
     .hidden { display: none !important; }
-    .cal-day { width: 40px; height: 55px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 0.5rem; cursor: pointer; border: 1px solid var(--border); }
-    .cal-day.active { background: #3b82f6; color: white; border-color: #3b82f6; }
   </style>
 
   <script>
-    const firebaseConfig = { apiKey: "VOTRE_API_KEY", authDomain: "VOTRE_AUTH_DOMAIN", projectId: "VOTRE_PROJECT_ID", storageBucket: "VOTRE_STORAGE_BUCKET", messagingSenderId: "VOTRE_MESSAGING_SENDER_ID", appId: "VOTRE_APP_ID" };
-    let db = null;
-    try { if (firebaseConfig.apiKey !== "VOTRE_API_KEY") { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } } catch (e) { console.error(e); }
-
-    const TYPE_ORDER = ['red', 'orange', 'yellow', 'green', 'blue'];
-    const TYPE_LABELS = { red: 'Unique/RDV', orange: 'Mensuelle', yellow: 'Hebdomadaire', green: 'Quotidienne', blue: 'Flottante' };
-    const TYPE_COLORS = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e', blue: '#3b82f6' };
-    const TYPE_CLASSES = { red: 'redTask', orange: 'orangeTask', yellow: 'yellowTask', green: 'greenTask', blue: 'blueTask' };
-    const TYPE_BADGES = { red: 'badge-red', orange: 'badge-orange', yellow: 'badge-yellow', green: 'badge-green', blue: 'badge-blue' };
-
+    // Variables globales
     let tasks = [];
     let sleepData = [];
     let napData = [];
-    let sportData = [];
-    let sportQuota = 4;
-    let taskHistory = {};
+    let taskHistory = {}; // Sauvegarde l'état validé par jour complet
     let chartInstances = {};
-    let selectedDate = getTodayStr();
+    
+    let currentCalDate = new Date(); // Date de navigation du calendrier
+    let selectedDate = getTodayStr(); // Jour actif pour l'affichage
 
     function getTodayStr() { return new Date().toISOString().split('T')[0]; }
-    function getWeekStartStr(dateStr) {
-      const d = new Date(dateStr);
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-      return new Date(d.setDate(diff)).toISOString().split('T')[0];
-    }
-    function getWeekNumber(dateStr) {
-      const d = new Date(dateStr); d.setHours(0,0,0,0); d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-      return Math.ceil((((d - new Date(d.getFullYear(),0,1)) / 86400000) + 1) / 7);
-    }
+    
     function formatDateFr(dateStr) {
-      const d = new Date(dateStr + 'T00:00:00');
-      return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-    }
-    function getDayNameFr(dateStr) {
-      return new Date(dateStr + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short' });
-    }
-    function sleepDuration(bed, wake) {
-      let b = bed.split(':').map(Number), w = wake.split(':').map(Number);
-      let bM = b[0]*60 + b[1], wM = w[0]*60 + w[1];
-      if (wM < bM) wM += 1440;
-      return (wM - bM) / 60;
+      return new Date(dateStr + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     }
 
+    // Gestion de la navigation d'onglets
     function switchTab(tab) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      const target = document.querySelector(`[data-tab="${tab}"]`);
-      if (target) target.classList.add('active');
+      document.querySelector(`[data-tab="${tab}"]`)?.classList.add('active');
       ['tasks','dashboard','archives'].forEach(t => document.getElementById('tab-' + t)?.classList.add('hidden'));
       document.getElementById('tab-' + tab)?.classList.remove('hidden');
+      
       if (tab === 'dashboard') setTimeout(initCharts, 50);
       if (tab === 'archives') renderArchives();
     }
 
-    function renderCalendar() {
-      const calContainer = document.getElementById('calendarTimeline');
-      if (!calContainer) return;
-      calContainer.innerHTML = '';
+    // --- LOGIQUE DU CALENDRIER STYLE WIDGET ---
+    function renderWidgetCalendar() {
+      const year = currentCalDate.getFullYear();
+      const month = currentCalDate.getMonth();
       
-      let start = new Date(getWeekStartStr(selectedDate));
-      for (let i = 0; i < 7; i++) {
-        let current = new Date(start);
-        current.setDate(start.getDate() + i);
-        let cStr = current.toISOString().split('T')[0];
-        let activeClass = (cStr === selectedDate) ? 'cal-day active' : 'cal-day';
-        
-        let dayBox = document.createElement('div');
-        dayBox.className = activeClass;
-        dayBox.onclick = () => { selectedDate = cStr; renderCalendar(); renderTasks(); };
-        dayBox.innerHTML = `
-          <span class="text-xs uppercase opacity-70">${getDayNameFr(cStr)}</span>
-          <span class="text-base font-bold">${current.getDate()}</span>
-        `;
-        calContainer.appendChild(dayBox);
+      // Titre Mois Année
+      const monthLabel = new Date(year, month).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+      document.getElementById('calendarMonthLabel').textContent = monthLabel;
+
+      const grid = document.getElementById('calendarGridCells');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      // Premier jour du mois et nombre de jours
+      const firstDayIdx = (new Date(year, month, 1).getDay() + 6) % 7; // Ajustement Lundi
+      const totalDays = new Date(year, month + 1, 0).getDate();
+      const prevTotalDays = new Date(year, month, 0).getDate();
+
+      // Jours du mois précédent (grisés)
+      for (let i = firstDayIdx - 1; i >= 0; i--) {
+        let dNum = prevTotalDays - i;
+        let cell = document.createElement('div');
+        cell.className = 'calendar-cell muted';
+        cell.textContent = dNum;
+        grid.appendChild(cell);
       }
-      document.getElementById('calendarTitle').textContent = formatDateFr(selectedDate) + " (S" + getWeekNumber(selectedDate) + ")";
+
+      // Jours du mois en cours
+      for (let d = 1; d <= totalDays; d++) {
+        let cell = document.createElement('div');
+        let currentString = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        
+        cell.className = 'calendar-cell';
+        if (currentString === selectedDate) cell.classList.add('active');
+        cell.textContent = d;
+        
+        cell.onclick = () => {
+          selectedDate = currentString;
+          renderWidgetCalendar();
+          renderTasks();
+        };
+        grid.appendChild(cell);
+      }
+      
+      document.getElementById('selectedDayTitle').textContent = formatDateFr(selectedDate);
     }
 
+    function changeMonth(direction) {
+      currentCalDate.setMonth(currentCalDate.getMonth() + direction);
+      renderWidgetCalendar();
+    }
+
+    // --- LOGIQUE DES TÂCHES ---
     function renderTasks() {
       const container = document.getElementById('taskList');
       if (!container) return;
       container.innerHTML = '';
 
-      // Historique rétroactif si le jour sélectionné est dans le passé
+      // Si on regarde un jour passé sauvegardé dans l'historique automatique
       if (selectedDate < getTodayStr() && taskHistory[selectedDate]) {
         renderHistoryDay(container, taskHistory[selectedDate]);
         return;
       }
 
-      const activeTasks = tasks.filter(t => {
+      // Filtrage intelligent selon les règles de récurrence
+      const todayTasks = tasks.filter(t => {
         if (t.type === 'red') return t.date === selectedDate;
         if (t.type === 'green') return true;
-        
-        if (t.type === 'yellow') {
-          // Gestion du quota hebdo dynamique
-          const doneThisWeek = sportData.filter(d => getWeekStartStr(d.date) === getWeekStartStr(selectedDate) && d.done && d.taskId === t.id).length;
-          if (t.quota && doneThisWeek >= t.quota) return false; // Masqué si quota atteint
-          return true;
-        }
-        
-        if (t.type === 'orange') {
-          // Filtrage par jour spécifique musulman (ex: lundi/jeudi) ou quota mensuel
+        if (t.type === 'yellow' || t.type === 'orange') {
+          // Si restriction de jour (ex: Jeudi pour le jeûne)
           if (t.specificDay && t.specificDay !== 'all') {
-            const currentDayName = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-            if (currentDayName !== t.specificDay) return false;
+            const dayName = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+            if (dayName !== t.specificDay) return false;
           }
-          const doneThisMonth = sportData.filter(d => d.date.slice(0,7) === selectedDate.slice(0,7) && d.done && d.taskId === t.id).length;
-          if (t.quota && doneThisMonth >= t.quota) return false; // Masqué si quota mensuel atteint
           return true;
         }
-        return !t.completed;
+        return true;
       });
 
-      if (activeTasks.length === 0) {
-        container.innerHTML = `<div class="card text-center text-slate-400">Aucune tâche active pour ce jour.</div>`;
+      if (todayTasks.length === 0) {
+        container.innerHTML = `<div class="text-center text-slate-400 p-4">Aucun programme planifié pour ce jour.</div>`;
         return;
       }
 
-      activeTasks.sort((a,b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)).forEach(task => {
-        const isComplex = task.subcases && task.subcases.length > 0;
+      todayTasks.forEach(task => {
         const el = document.createElement('div');
-        el.className = 'task-item card';
+        el.className = 'task-item flex flex-col items-start gap-3';
         el.style.borderLeft = '4px solid ' + TYPE_COLORS[task.type];
 
-        let subHtml = '';
-        if (isComplex) {
-          subHtml = '<div class="flex gap-2 flex-wrap mt-2">' + task.subcases.map((s, idx) => {
-            return `<div class="subcase ${s.done ? 'done ' + TYPE_CLASSES[task.type] : ''}" onclick="toggleSubcase('${task.id}', ${idx})">${s.name}</div>`;
-          }).join('') + '</div>';
-        }
-
-        let quotaInfo = '';
-        if (task.quota) {
-          const doneCount = sportData.filter(d => d.taskId === task.id && (task.type === 'yellow' ? getWeekStartStr(d.date) === getWeekStartStr(selectedDate) : d.date.slice(0,7) === selectedDate.slice(0,7))).length;
-          quotaInfo = `<span class="text-xs font-bold ml-2">📊 ${doneCount}/${task.quota}</span>`;
+        // Construction des blocs de quotas nommés (Ex: Push / Pull / Legs)
+        let quotaBlockHtml = '';
+        if (task.quotaArr && task.quotaArr.length > 0) {
+          quotaBlockHtml = '<div class="flex gap-2 flex-wrap mt-1">';
+          task.quotaArr.forEach((q, idx) => {
+            // Vérification si cette sous-séance précise est cochée pour la période/jour en cours
+            const isDone = q.doneDates && q.doneDates.includes(selectedDate);
+            const activeCls = isDone ? `done ${TYPE_CLASSES[task.type]}` : '';
+            quotaBlockHtml += `
+              <div class="subcase-btn ${activeCls}" onclick="toggleQuotaCell('${task.id}', ${idx})">
+                ${q.name || `Séc. ${idx+1}`} ${isDone ? '✅' : ''}
+              </div>
+            `;
+          });
+          quotaBlockHtml += '</div>';
         }
 
         el.innerHTML = `
-          <div class="checkbox-main ${task.completed && !isComplex ? 'done' : ''}" style="color:${TYPE_COLORS[task.type]}" onclick="toggleTask('${task.id}')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2">
-              <span class="font-semibold">${task.name}</span>
-              <span class="badge ${TYPE_BADGES[task.type]}">${TYPE_LABELS[task.type]}</span>
-              ${quotaInfo}
+          <div class="w-full flex justify-between items-center">
+            <div>
+              <span class="font-bold text-lg">${task.name}</span>
+              <span class="badge ml-2 ${task.type === 'yellow' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-orange-500/20 text-orange-400'}">
+                ${TYPE_LABELS[task.type]}
+              </span>
             </div>
-            ${subHtml}
+            <button class="text-slate-500 hover:text-red-400" onclick="deleteTask('${task.id}')">🗑️</button>
           </div>
-          <button onclick="deleteTask('${task.id}')">🗑️</button>
+          ${quotaBlockHtml}
         `;
         container.appendChild(el);
       });
+    }
+
+    function toggleQuotaCell(taskId, idx) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.quotaArr) return;
+      
+      if (!task.quotaArr[idx].doneDates) task.quotaArr[idx].doneDates = [];
+      
+      const dateIdx = task.quotaArr[idx].doneDates.indexOf(selectedDate);
+      if (dateIdx > -1) {
+        task.quotaArr[idx].doneDates.splice(dateIdx, 1); // Décocher
+      } else {
+        task.quotaArr[idx].doneDates.push(selectedDate); // Cocher
+      }
+
+      // Enregistrement auto dans l'historique global pour le suivi
+      saveHistoryState();
+      saveLocalStorage();
+      renderTasks();
     }
 
     function renderHistoryDay(container, dayHist) {
+      container.innerHTML = '<h4 class="text-xs font-bold uppercase text-slate-400 mb-2">Historique enregistré :</h4>';
       Object.values(dayHist).forEach(h => {
-        const el = document.createElement('div');
-        el.className = 'task-item card opacity-70';
-        el.style.borderLeft = '4px solid ' + TYPE_COLORS[h.type];
-        el.innerHTML = `
-          <div class="checkbox-main done" style="color:${TYPE_COLORS[h.type]}">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div>
-            <span class="font-semibold line-through">${h.name}</span>
-            <span class="badge ${TYPE_BADGES[h.type]}">${TYPE_LABELS[h.type]}</span>
-            <span class="text-xs block text-slate-400">Validé à ${h.pct}% ce jour-là</span>
+        container.innerHTML += `
+          <div class="task-item opacity-60" style="border-left:4px solid ${TYPE_COLORS[h.type]}">
+            <div>
+              <p class="font-semibold line-through text-slate-300">${h.name}</p>
+              <span class="text-xs text-slate-400">Complété ce jour-là</span>
+            </div>
           </div>
         `;
-        container.appendChild(el);
       });
     }
 
-    function toggleTask(id) {
-      const task = tasks.find(t => t.id === id);
-      if (!task) return;
-      if (task.quota) {
-        // Enregistre une occurrence de quota accomplie
-        sportData.push({ date: selectedDate, done: true, taskId: task.id });
-        syncData("metrics", "sport", sportData);
-        recordTaskHistory(task);
-        renderTasks();
-        return;
-      }
-      if (task.subcases) return;
-      task.completed = !task.completed;
-      saveAndRefresh();
-    }
-
-    function toggleSubcase(taskId, subIdx) {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) return;
-      task.subcases[subIdx].done = !task.subcases[subIdx].done;
-      task.completed = task.subcases.every(s => s.done);
-      saveAndRefresh();
-    }
-
-    function recordTaskHistory(task) {
+    function saveHistoryState() {
       if (!taskHistory[selectedDate]) taskHistory[selectedDate] = {};
-      const total = task.subcases ? task.subcases.length : 1;
-      const done = task.subcases ? task.subcases.filter(s => s.done).length : 1;
-      taskHistory[selectedDate][task.id] = { name: task.name, type: task.type, pct: Math.round((done/total)*100) };
-      syncData("metrics", "history", taskHistory);
+      tasks.forEach(t => {
+        taskHistory[selectedDate][t.id] = { name: t.name, type: t.type, timestamp: Date.now() };
+      });
+      localStorage.setItem('prod_history', JSON.stringify(taskHistory));
     }
 
-    function openTaskModal() {
-      document.getElementById('taskModal').classList.add('open');
-    }
-    function closeTaskModal() {
-      document.getElementById('taskModal').classList.remove('open');
-    }
+    // Gère l'affichage dynamique des champs dans le modal de création
     function onTypeChange() {
       const type = document.getElementById('taskType').value;
-      document.getElementById('quotaField').classList.toggle('hidden', !['yellow', 'orange'].includes(type));
-      document.getElementById('daySelectionField').classList.toggle('hidden', type !== 'orange');
+      const isQuotaType = ['yellow', 'orange'].includes(type);
+      document.getElementById('quotaSetupSection').classList.toggle('hidden', !isQuotaType);
+      document.getElementById('muslimDaySection').classList.toggle('hidden', type !== 'orange');
+    }
+
+    function generateQuotaInputs() {
+      const num = parseInt(document.getElementById('taskQuotaValue').value) || 0;
+      const container = document.getElementById('quotaNamesContainer');
+      container.innerHTML = '';
+      if (num <= 0) return;
+
+      container.innerHTML = '<label class="text-xs font-bold block text-slate-400 mb-1">Nommez vos séances/objectifs du cycle :</label>';
+      for (let i = 0; i < num; i++) {
+        let placeholder = i === 0 ? "Ex: Push" : i === 1 ? "Ex: Pull" : i === 2 ? "Ex: Legs" : `Séance ${i+1}`;
+        container.innerHTML += `<input type="text" id="quotaName_${i}" class="w-full mb-2 text-sm" placeholder="${placeholder}" />`;
+      }
     }
 
     function saveTask() {
       const name = document.getElementById('taskName').value.trim();
       const type = document.getElementById('taskType').value;
-      const quota = parseInt(document.getElementById('taskQuotaValue').value) || null;
+      const quotaNum = parseInt(document.getElementById('taskQuotaValue').value) || 0;
       const specificDay = document.getElementById('taskSpecificDay').value;
-      const structure = document.getElementById('taskStructure').value;
-      const subcasesVal = document.getElementById('subcaseNames').value;
 
       if (!name) return;
 
-      let subcases = null;
-      if (structure === 'complex' && subcasesVal) {
-        subcases = subcasesVal.split(',').map(s => ({ name: s.trim(), done: false }));
+      let quotaArr = [];
+      if (['yellow', 'orange'].includes(type) && quotaNum > 0) {
+        for (let i = 0; i < quotaNum; i++) {
+          const qName = document.getElementById(`quotaName_${i}`)?.value.trim() || `Séance ${i+1}`;
+          quotaArr.push({ name: qName, doneDates: [] });
+        }
       }
 
-      const newTask = {
-        id: 'task_' + Date.now(),
-        name, type, quota, specificDay, subcases,
-        completed: false, date: selectedDate
-      };
-
+      const newTask = { id: 'task_' + Date.now(), name, type, quotaArr, specificDay, createdAt: getTodayStr() };
       tasks.push(newTask);
-      if (!db) localStorage.setItem('prod_tasks', JSON.stringify(tasks));
-      else db.collection("tasks").doc(newTask.id).set(newTask);
-
+      
+      saveLocalStorage();
       closeTaskModal();
       renderTasks();
     }
 
     function deleteTask(id) {
       tasks = tasks.filter(t => t.id !== id);
-      saveAndRefresh();
-    }
-
-    function saveAndRefresh() {
-      if (!db) localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+      saveLocalStorage();
       renderTasks();
     }
 
-    // GESTION DU SOMMEIL (AVEC BLOCAGE DE DOUBLONS)
+    // --- SÉCURITÉ ANTI-DOUBLONS MÉTRIQUES ---
     function addSleep() {
       const bed = document.getElementById('bedTime').value;
       const wake = document.getElementById('wakeTime').value;
       if (!bed || !wake) return;
 
-      // Éviter les doublons : on nettoie l'enregistrement existant du même jour s'il existe
-      sleepData = sleepData.filter(d => d.date !== selectedDate);
+      // Écrase l'ancien enregistrement du jour même pour éviter tout doublon
+      sleepData = sleepData.filter(s => s.date !== selectedDate);
+      
+      let b = bed.split(':').map(Number), w = wake.split(':').map(Number);
+      let duration = ((w[0]*60+w[1]) - (b[0]*60+b[1]));
+      if (duration < 0) duration += 1440;
 
-      sleepData.push({ date: selectedDate, bed, wake, duration: sleepDuration(bed, wake) });
-      syncData("metrics", "sleep", sleepData);
+      sleepData.push({ date: selectedDate, bed, wake, duration: duration / 60 });
+      localStorage.setItem('prod_sleep', JSON.stringify(sleepData));
       initCharts();
     }
 
@@ -351,179 +328,192 @@
       const duration = parseInt(document.getElementById('napDuration').value);
       if (!start || !duration) return;
 
-      // Éviter les doublons de sieste sur la même heure/jour
-      napData = napData.filter(d => !(d.date === selectedDate && d.start === start));
-
+      napData = napData.filter(n => !(n.date === selectedDate));
       napData.push({ date: selectedDate, start, duration });
-      syncData("metrics", "naps", napData);
+      localStorage.setItem('prod_naps', JSON.stringify(napData));
       initCharts();
     }
 
-    function deleteMetric(type, index) {
+    function removeMetric(type, index) {
       if (type === 'sleep') sleepData.splice(index, 1);
       if (type === 'nap') napData.splice(index, 1);
-      if (type === 'sport') sportData.splice(index, 1);
-      
-      syncData("metrics", type, type === 'sleep' ? sleepData : type === 'nap' ? napData : sportData);
+      localStorage.setItem('prod_' + type, JSON.stringify(type === 'sleep' ? sleepData : napData));
       initCharts();
     }
 
-    function syncData(col, doc, data) {
-      if (db) db.collection(col).doc(doc).set({ list: data });
-      else localStorage.setItem('prod_' + doc, JSON.stringify(data));
+    function renderArchives() {
+      const container = document.getElementById('archiveContent');
+      if (!container) return;
+      container.innerHTML = '<h4 class="font-bold mb-2">Historique cumulatif des jours validés</h4>';
+      
+      if (Object.keys(taskHistory).length === 0) {
+        container.innerHTML += '<p class="text-sm text-slate-400">Aucune archive pour le moment.</p>';
+        return;
+      }
+
+      Object.keys(taskHistory).sort().reverse().forEach(date => {
+        container.innerHTML += `
+          <div class="p-2 border-b border-slate-700 flex justify-between text-sm">
+            <span>📅 <strong>${date}</strong></span>
+            <span class="text-emerald-400">${Object.keys(taskHistory[date]).length} action(s) enregistrée(s)</span>
+          </div>
+        `;
+      });
     }
 
     function initCharts() {
-      // Affichage des moyennes textuelles
-      if (sleepData.length > 0) {
-        let avg = sleepData.reduce((a,b) => a+b.duration, 0) / sleepData.length;
-        document.getElementById('avgSleepDuration').textContent = avg.toFixed(1) + 'h';
-      }
-      if (napData.length > 0) {
-        let avg = napData.reduce((a,b) => a+b.duration, 0) / napData.length;
-        document.getElementById('avgNapDuration').textContent = Math.round(avg) + 'm';
-      }
-
-      // Graphique Sommeil
-      let ctxSleep = document.getElementById('sleepChart')?.getContext('2d');
-      if (ctxSleep) {
-        if (chartInstances.sleep) chartInstances.sleep.destroy();
-        chartInstances.sleep = new Chart(ctxSleep, {
-          type: 'bar',
-          data: {
-            labels: sleepData.slice(-7).map(d => d.date.slice(5)),
-            datasets: [{ label: 'Sommeil (h)', data: sleepData.slice(-7).map(d => d.duration), backgroundColor: '#3b82f6' }]
-          },
-          options: { responsive: true, maintainAspectRatio: false }
-        });
+      const sleepListEl = document.getElementById('sleepHistoryList');
+      if (sleepListEl) {
+        sleepListEl.innerHTML = sleepData.slice(-3).map((s, idx) => `
+          <div class="flex justify-between items-center text-xs bg-slate-900 p-2 rounded mb-1">
+            <span>${s.date} : ${s.bed} ➔ ${s.wake} (${s.duration.toFixed(1)}h)</span>
+            <button class="text-red-400" onclick="removeMetric('sleep', ${idx})">🗑️</button>
+          </div>
+        `).join('');
       }
     }
 
-    function dailyCheck() {
-      // Sauvegarde l'état d'un jour à minuit
+    function saveLocalStorage() { localStorage.setItem('prod_tasks', JSON.stringify(tasks)); }
+    function openTaskModal() { document.getElementById('taskModal').classList.add('open'); }
+    function closeTaskModal() { document.getElementById('taskModal').classList.remove('open'); }
+
+    // Enregistrement auto à minuit
+    function midnightAutoCheck() {
       const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
       const yStr = yesterday.toISOString().split('T')[0];
       if (!taskHistory[yStr]) {
         taskHistory[yStr] = {};
-        syncData("metrics", "history", taskHistory);
+        localStorage.setItem('prod_history', JSON.stringify(taskHistory));
       }
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-      // Initialisation locale basique si Firebase absent
-      if (!db) {
-        try {
-          tasks = JSON.parse(localStorage.getItem('prod_tasks')) || [];
-          sleepData = JSON.parse(localStorage.getItem('prod_sleep')) || [];
-          napData = JSON.parse(localStorage.getItem('prod_naps')) || [];
-          sportData = JSON.parse(localStorage.getItem('prod_sport')) || [];
-          taskHistory = JSON.parse(localStorage.getItem('prod_history')) || {};
-        } catch(e){}
-      }
-      renderCalendar();
+      try {
+        tasks = JSON.parse(localStorage.getItem('prod_tasks')) || [];
+        sleepData = JSON.parse(localStorage.getItem('prod_sleep')) || [];
+        napData = JSON.parse(localStorage.getItem('prod_naps')) || [];
+        taskHistory = JSON.parse(localStorage.getItem('prod_history')) || {};
+      } catch(e){}
+      
+      renderWidgetCalendar();
       renderTasks();
-      setInterval(dailyCheck, 60000);
+      setInterval(midnightAutoCheck, 60000);
     });
+
+    const TYPE_LABELS = { red: 'Unique', orange: 'Mensuelle', yellow: 'Hebdomadaire', green: 'Quotidienne' };
+    const TYPE_COLORS = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e' };
+    const TYPE_CLASSES = { red: 'redTask', orange: 'orangeTask', yellow: 'yellowTask', green: 'greenTask' };
   </script>
 </head>
-<body class="p-4 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen">
+<body class="p-4 md:p-6">
 
-  <div class="max-w-4xl mx-auto">
-    <header class="flex justify-between items-center mb-6">
+  <div class="max-w-4xl mx-auto space-y-6">
+    
+    <header class="flex justify-between items-center">
       <div>
-        <h1 class="text-xl font-bold">Productivité Professionnelle & Athlète</h1>
-        <p class="text-xs text-slate-500" id="calendarTitle"></p>
+        <h1 class="text-2xl font-black text-slate-100 tracking-tight">STUDIO PRODUCTIVITÉ</h1>
+        <p class="text-xs text-slate-400" id="selectedDayTitle"></p>
       </div>
-      <button class="btn-primary" onclick="openTaskModal()">➕ Configurer Tâche</button>
+      <button class="btn-primary" onclick="openTaskModal()">➕ Nouveau Programme</button>
     </header>
 
-    <div class="flex justify-between gap-1 card mb-6 overflow-x-auto py-2" id="calendarTimeline"></div>
+    <!-- CALENDRIER AGENDA STYLE WIDGET (SOMBRE) -->
+    <div class="widget-calendar">
+      <div class="flex justify-between items-center mb-4 px-2">
+        <h3 class="text-xl font-bold tracking-wide text-slate-100" id="calendarMonthLabel">juil. 2026</h3>
+        <div class="flex gap-4">
+          <button onclick="changeMonth(-1)" class="text-lg font-bold p-1 hover:text-orange-400">❮</button>
+          <button onclick="changeMonth(1)" class="text-lg font-bold p-1 hover:text-orange-400">❯</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-500 mb-2 uppercase">
+        <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+      </div>
+      <div class="calendar-grid" id="calendarGridCells"></div>
+    </div>
 
-    <nav class="flex gap-2 mb-6">
-      <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks')">📋 Tâches</button>
-      <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Métriques & Sommeil</button>
+    <!-- ONGLETS DE NAVIGATION -->
+    <nav class="flex gap-2">
+      <button class="tab-btn active" data-tab="tasks" onclick="switchTab('tasks')">📋 Mes Programmes du Jour</button>
+      <button class="tab-btn" data-tab="dashboard" onclick="switchTab('dashboard')">📊 Sommeil & Métriques</button>
+      <button class="tab-btn" data-tab="archives" onclick="switchTab('archives')">📁 Historique Global</button>
     </nav>
 
-    <section id="tab-tasks" class="space-y-4">
-      <div id="taskList" class="space-y-2"></div>
+    <!-- CONTENU : TÂCHES -->
+    <section id="tab-tasks" class="space-y-2">
+      <div id="taskList" class="space-y-3"></div>
     </section>
 
-    <section id="tab-dashboard" class="hidden space-y-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="card">
-          <h3 class="font-bold mb-2 text-sm">😴 Enregistrer Sommeil Nocturne</h3>
-          <div class="flex gap-2 mb-4">
-            <input type="time" id="bedTime" />
-            <input type="time" id="wakeTime" />
-            <button class="btn-primary text-xs" onclick="addSleep()">OK</button>
-          </div>
-          <div class="chart-container"><canvas id="sleepChart"></canvas></div>
+    <!-- CONTENU : MÉTRIQUES ANTI-DOUBLONS -->
+    <section id="tab-dashboard" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="card">
+        <h3 class="font-bold text-sm mb-3">😴 Sommeil Récupération</h3>
+        <div class="flex gap-2 mb-3">
+          <input type="time" id="bedTime" />
+          <input type="time" id="wakeTime" />
+          <button class="btn-primary text-xs" onclick="addSleep()">Enregistrer</button>
         </div>
-
-        <div class="card">
-          <h3 class="font-bold mb-2 text-sm">💤 Siestes Récupération</h3>
-          <div class="flex gap-2 mb-4">
-            <input type="time" id="napStart" />
-            <input type="number" id="napDuration" placeholder="min" class="w-20" />
-            <button class="btn-primary text-xs" onclick="addNap()">OK</button>
-          </div>
-          <div class="chart-container"><canvas id="napChart"></canvas></div>
-        </div>
+        <div id="sleepHistoryList"></div>
       </div>
-
-      <div class="grid grid-cols-2 gap-4 text-center">
-        <div class="card"><p class="text-xl font-bold" id="avgSleepDuration">--</p><span class="text-xs text-slate-500">Moy. Sommeil</span></div>
-        <div class="card"><p class="text-xl font-bold" id="avgNapDuration">--</p><span class="text-xs text-slate-500">Moy. Sieste</span></div>
+      <div class="card">
+        <h3 class="font-bold text-sm mb-3">💤 Sieste Vigilance</h3>
+        <div class="flex gap-2 mb-3">
+          <input type="time" id="napStart" />
+          <input type="number" id="napDuration" class="w-20" placeholder="Min" />
+          <button class="btn-primary text-xs" onclick="addNap()">Enregistrer</button>
+        </div>
       </div>
     </section>
+
+    <!-- CONTENU : ARCHIVES RESTAURÉES -->
+    <section id="tab-archives" class="hidden card">
+      <div id="archiveContent"></div>
+    </section>
+
   </div>
 
+  <!-- MODAL DE CRÉATION DE PROGRAMME COMPLEXE -->
   <div id="taskModal" class="modal-overlay">
     <div class="modal-content">
-      <h3 class="font-bold text-lg mb-4">⚙️ Paramétrer un Programme</h3>
-      <div class="space-y-4">
+      <h3 class="font-bold text-xl mb-4 text-slate-100">⚙️ Paramétrer une Planification</h3>
+      
+      <div class="space-y-4 text-slate-200">
         <div>
-          <label class="text-xs font-bold block mb-1">Nom (Ex: Push Day, Jeûne Sunnah)</label>
-          <input type="text" id="taskName" class="w-full" placeholder="Entrez le titre..." />
+          <label class="text-xs font-bold block mb-1 text-slate-400">Nom du bloc / rituel</label>
+          <input type="text" id="taskName" class="w-full" placeholder="Ex: Entraînement Musculation, Jeûne Rituels" />
         </div>
+
         <div>
-          <label class="text-xs font-bold block mb-1">Fréquence & Type</label>
+          <label class="text-xs font-bold block mb-1 text-slate-400">Fréquence</label>
           <select id="taskType" class="w-full" onchange="onTypeChange()">
-            <option value="green">🟢 Quotidienne (Chaque jour)</option>
-            <option value="yellow">🟡 Hebdomadaire (Objectif Hebdo Flottant)</option>
-            <option value="orange">🟠 Mensuelle (Objectif Mensuel / Jours spécifiques)</option>
-            <option value="red">🔴 Unique / RDV Précis</option>
+            <option value="green">🟢 Quotidienne</option>
+            <option value="yellow">🟡 Hebdomadaire (Quota libre)</option>
+            <option value="orange">🟠 Mensuelle (Dates / Jours ciblés)</option>
+            <option value="red">🔴 Unique / RDV Pro</option>
           </select>
         </div>
-        
-        <div id="quotaField" class="hidden">
-          <label class="text-xs font-bold block mb-1">Nombre d'occurrences attendues (Quota)</label>
-          <input type="number" id="taskQuotaValue" class="w-full" placeholder="Ex: 4" min="1" />
+
+        <!-- Section configuration PPL / Quotas dynamiques -->
+        <div id="quotaSetupSection" class="hidden space-y-2 border-l-2 border-blue-500 pl-3">
+          <label class="text-xs font-bold block text-slate-400">Combien de séances / occurrences dans ce cycle ?</label>
+          <input type="number" id="taskQuotaValue" class="w-full mb-2" min="1" placeholder="Ex: 3" oninput="generateQuotaInputs()" />
+          <div id="quotaNamesContainer"></div>
         </div>
 
-        <div id="daySelectionField" class="hidden">
-          <label class="text-xs font-bold block mb-1">Restreindre à un jour saint / fixe ?</label>
+        <!-- Spécificités Jours Saints / Pratiques Islam -->
+        <div id="muslimDaySection" class="hidden border-l-2 border-orange-500 pl-3">
+          <label class="text-xs font-bold block text-slate-400">Restreindre à des jours fixes de la semaine ?</label>
           <select id="taskSpecificDay" class="w-full">
-            <option value="all">N'importe quel jour du mois</option>
-            <option value="monday">Lundi uniquement</option>
-            <option value="thursday">Jeudi uniquement</option>
+            <option value="all">Tous les jours du mois</option>
+            <option value="monday">Uniquement les Lundis</option>
+            <option value="thursday">Uniquement les Jeudis</option>
           </select>
-        </div>
-
-        <div>
-          <label class="text-xs font-bold block mb-1">Découpage Structure</label>
-          <select id="taskStructure" class="w-full" onchange="document.getElementById('subContainer').classList.toggle('hidden', this.value !== 'complex')">
-            <option value="simple">Action unique (1 case)</option>
-            <option value="complex">Sous-étapes (Plusieurs sous-cases)</option>
-          </select>
-        </div>
-        <div id="subContainer" class="hidden">
-          <input type="text" id="subcaseNames" class="w-full" placeholder="Ex: Sobh, Dohr, Asr ou Exercice1, Exercice2" />
         </div>
       </div>
+
       <div class="flex justify-end gap-2 mt-6">
-        <button class="tab-btn" onclick="closeTaskModal()">Fermer</button>
-        <button class="btn-primary" onclick="saveTask()">Enregistrer le programme</button>
+        <button class="tab-btn bg-transparent" onclick="closeTaskModal()">Annuler</button>
+        <button class="btn-primary" onclick="saveTask()">Valider le Programme</button>
       </div>
     </div>
   </div>
