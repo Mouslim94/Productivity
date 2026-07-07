@@ -84,6 +84,687 @@
     .flex { display: flex; }
     .grid { display: grid; }
   </style>
+
+  <script>
+    // ============================================================
+    // CONFIGURATION DE LA BASE DE DONNÉES FIREBASE
+    // ============================================================
+    const firebaseConfig = {
+      apiKey: "VOTRE_API_KEY",
+      authDomain: "VOTRE_AUTH_DOMAIN",
+      projectId: "VOTRE_PROJECT_ID",
+      storageBucket: "VOTRE_STORAGE_BUCKET",
+      messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
+      appId: "VOTRE_APP_ID"
+    };
+
+    let db = null;
+    try {
+      if (firebaseConfig.apiKey !== "VOTRE_API_KEY") {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        console.log("Firebase connecté avec succès !");
+      } else {
+        console.warn("Firebase fonctionne actuellement en mode LocalStorage (Clés manquantes).");
+      }
+    } catch (e) {
+      console.error("Erreur d'initialisation Firebase: ", e);
+    }
+
+    // VARIABLES D'ÉTAT GLOBALES
+    const TYPE_ORDER = ['red', 'orange', 'yellow', 'green', 'blue'];
+    const TYPE_LABELS = { red: 'Unique/RDV', orange: 'Mensuelle', yellow: 'Hebdomadaire', green: 'Quotidienne', blue: 'Flottante' };
+    const TYPE_COLORS = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e', blue: '#3b82f6' };
+    const TYPE_CLASSES = { red: 'redTask', orange: 'orangeTask', yellow: 'yellowTask', green: 'greenTask', blue: 'blueTask' };
+    const TYPE_BADGES = { red: 'badge-red', orange: 'badge-orange', yellow: 'badge-yellow', green: 'badge-green', blue: 'badge-blue' };
+
+    let tasks = [];
+    let sleepData = [];
+    let napData = [];
+    let sportData = [];
+    let sportQuota = 4;
+    let taskHistory = {};
+    let streaks = { orange: 0, yellow: 0, green: 0 };
+    let chartInstances = {};
+
+    // UTILITAIRES DE DATE
+    function getTodayStr() { return new Date().toISOString().split('T')[0]; }
+    function getWeekStartStr(dateStr) {
+      const d = new Date(dateStr);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(d.setDate(diff));
+      return monday.toISOString().split('T')[0];
+    }
+    function getMonthStartStr(dateStr) { return dateStr.slice(0, 7) + '-01'; }
+    function getWeekNumber(dateStr) {
+      const d = new Date(dateStr);
+      d.setHours(0,0,0,0);
+      d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+      const yearStart = new Date(d.getFullYear(),0,1);
+      return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    }
+    function formatDateFr(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+    function timeToMinutes(timeStr) {
+      const [h,m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    }
+    function minutesToTime(minutes) {
+      const h = Math.floor(minutes / 60) % 24;
+      const m = minutes % 60;
+      return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+    }
+    function sleepDuration(bed, wake) {
+      let bedM = timeToMinutes(bed);
+      let wakeM = timeToMinutes(wake);
+      if (wakeM < bedM) wakeM += 24 * 60;
+      return (wakeM - bedM) / 60;
+    }
+
+    // NAVIGATION DES ONGLETS
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      const targetBtn = document.querySelector(`[data-tab="${tab}"]`);
+      if (targetBtn) targetBtn.classList.add('active');
+      
+      ['tasks','dashboard','archives'].forEach(t => {
+        const el = document.getElementById('tab-' + t);
+        if(el) el.classList.add('hidden');
+      });
+      const currentTab = document.getElementById('tab-' + tab);
+      if(currentTab) currentTab.classList.remove('hidden');
+      
+      if (tab === 'dashboard') setTimeout(initCharts, 50);
+      if (tab === 'archives') renderArchives();
+    }
+
+    // FONCTIONS DE GESTION DES TÂCHES
+    function getTasksForDate(dateStr) {
+      const weekStart = getWeekStartStr(dateStr);
+      return tasks.filter(t => {
+        if (t.type === 'red') return t.date === dateStr;
+        if (t.type === 'orange') return t.date && t.date.slice(0,7) === dateStr.slice(0,7);
+        if (t.type === 'yellow') return t.date && getWeekStartStr(t.date) === weekStart;
+        if (t.type === 'green') return true;
+        if (t.type === 'blue') {
+          if (t.completed || (t.subcases && t.subcases.every(s => s.done))) {
+            return t.completedDate === dateStr;
+          }
+          return true;
+        }
+        return false;
+      }).map(t => ({ ...t }));
+    }
+
+    function renderTasks() {
+      const today = getTodayStr();
+      const dateDisp = document.getElementById('currentDateDisplay');
+      const weekDisp = document.getElementById('weekInfo');
+      if(dateDisp) dateDisp.textContent = formatDateFr(today);
+      if(weekDisp) weekDisp.textContent = 'Semaine ' + getWeekNumber(today);
+
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      const alerts = [];
+      
+      tasks.forEach(t => {
+        if (t.type === 'red' && t.date === tomorrowStr) alerts.push(`🔴 RDV demain : ${t.name}`);
+        if (t.type === 'orange' && t.date && t.date.slice(0,7) === tomorrowStr.slice(0,7)) alerts.push(`🟠 Tâche mensuelle : ${t.name}`);
+        if (t.type === 'yellow' && t.date && getWeekStartStr(t.date) === getWeekStartStr(tomorrowStr)) alerts.push(`🟡 Tâche hebdo : ${t.name}`);
+      });
+      
+      const alertBox = document.getElementById('alertBox');
+      if (alertBox) {
+        if (alerts.length > 0) {
+          alertBox.innerHTML = '<strong>⚠️ Alertes pour demain :</strong><br>' + alerts.join('<br>');
+          alertBox.style.display = 'block';
+        } else {
+          alertBox.style.display = 'none';
+        }
+      }
+
+      const todayTasks = getTasksForDate(today);
+      const container = document.getElementById('taskList');
+      if(!container) return;
+      container.innerHTML = '';
+
+      if (todayTasks.length === 0) {
+        container.innerHTML = `<div class="card text-center" style="color:var(--muted)">Aucune tâche pour aujourd'hui. Ajoutez-en une !</div>`;
+        return;
+      }
+
+      const sorted = todayTasks.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
+
+      sorted.forEach(task => {
+        const isComplex = task.subcases && task.subcases.length > 0;
+        const totalSub = isComplex ? task.subcases.length : 1;
+        const doneSub = isComplex ? task.subcases.filter(s => s.done).length : (task.completed ? 1 : 0);
+        const pct = Math.round((doneSub / totalSub) * 100);
+
+        const el = document.createElement('div');
+        el.className = 'task-item';
+        el.style.borderLeft = '4px solid ' + TYPE_COLORS[task.type];
+
+        let subcasesHtml = '';
+        if (isComplex) {
+          subcasesHtml = '<div class="flex gap-2 flex-wrap mt-2">' +
+            task.subcases.map((sc, idx) => {
+              const cls = sc.done ? 'done ' + TYPE_CLASSES[task.type] : '';
+              return `<div class="subcase ${cls}" onclick="toggleSubcase('${task.id}', ${idx})">${sc.name}</div>`;
+            }).join('') +
+          '</div>';
+        }
+
+        let streakHtml = '';
+        if (['orange','yellow','green'].includes(task.type)) {
+          streakHtml = `<span class="streak"><span class="streak-fire">🔥</span> ${streaks[task.type] || 0}j</span>`;
+        }
+
+        el.innerHTML = `
+          <div class="checkbox-main ${task.completed && !isComplex ? 'done' : ''}" style="color:${TYPE_COLORS[task.type]}" onclick="toggleTask('${task.id}')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-semibold truncate">${task.name}</span>
+              <span class="badge ${TYPE_BADGES[task.type]}">${TYPE_LABELS[task.type]}</span>
+              ${task.date ? `<span class="text-xs" style="color:var(--muted)">${task.date}</span>` : ''}
+              ${streakHtml}
+            </div>
+            ${subcasesHtml}
+            ${isComplex ? `<div class="mt-2"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%; background:${TYPE_COLORS[task.type]}"></div></div><span class="text-xs" style="color:var(--muted)">${pct}%</span></div>` : ''}
+          </div>
+          <button class="text-sm" style="color:var(--muted); background:none; border:none; cursor:pointer;" onclick="deleteTask('${task.id}')" title="Supprimer">🗑️</button>
+        `;
+        container.appendChild(el);
+      });
+    }
+
+    function toggleTask(id) {
+      const task = tasks.find(t => t.id === id);
+      if (!task || (task.subcases && task.subcases.length > 0)) return;
+      task.completed = !task.completed;
+      task.completedDate = task.completed ? getTodayStr() : null;
+      
+      if (db) {
+        db.collection("tasks").doc(id).update({ completed: task.completed, completedDate: task.completedDate });
+      } else {
+        localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+        recordTaskHistory(task); updateStreaks(); renderTasks();
+      }
+    }
+
+    function toggleSubcase(taskId, subIdx) {
+      const task = tasks.find(t => t.id === taskId);
+      if (!task || !task.subcases) return;
+      task.subcases[subIdx].done = !task.subcases[subIdx].done;
+      const allDone = task.subcases.every(s => s.done);
+      task.completed = allDone;
+      task.completedDate = allDone ? getTodayStr() : null;
+
+      if (db) {
+        db.collection("tasks").doc(taskId).update({ subcases: task.subcases, completed: task.completed, completedDate: task.completedDate });
+      } else {
+        localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+        recordTaskHistory(task); updateStreaks(); renderTasks();
+      }
+    }
+
+    function recordTaskHistory(task) {
+      const today = getTodayStr();
+      if (!taskHistory[today]) taskHistory[today] = {};
+      const total = task.subcases ? task.subcases.length : 1;
+      const done = task.subcases ? task.subcases.filter(s => s.done).length : (task.completed ? 1 : 0);
+      taskHistory[today][task.id] = { name: task.name, type: task.type, total, done, pct: Math.round((done/total)*100) };
+      if (db) db.collection("metrics").doc("history").set({ history: taskHistory });
+      else localStorage.setItem('prod_taskHistory', JSON.stringify(taskHistory));
+    }
+
+    function updateStreaks() {
+      const today = getTodayStr();
+      ['orange', 'yellow', 'green'].forEach(type => {
+        const typeTasks = tasks.filter(t => t.type === type);
+        if (typeTasks.length === 0) { streaks[type] = 0; return; }
+        let streak = 0;
+        let checkDate = new Date(today);
+        while (true) {
+          const dateStr = checkDate.toISOString().split('T')[0];
+          const dayTasks = getTasksForDate(dateStr).filter(t => t.type === type);
+          if (dayTasks.length === 0) break;
+          const allDone = dayTasks.every(t => t.subcases ? t.subcases.every(s => s.done) : t.completed);
+          if (!allDone) break;
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        }
+        streaks[type] = streak;
+      });
+      localStorage.setItem('prod_streaks', JSON.stringify(streaks));
+    }
+
+    function deleteTask(id) {
+      if (!confirm('Supprimer cette tâche ?')) return;
+      if (db) {
+        db.collection("tasks").doc(id).delete();
+      } else {
+        tasks = tasks.filter(t => t.id !== id);
+        localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+        renderTasks();
+      }
+    }
+
+    function openTaskModal() {
+      const modal = document.getElementById('taskModal');
+      if(!modal) return;
+      modal.classList.add('open');
+      document.getElementById('taskName').value = '';
+      document.getElementById('taskType').value = 'green';
+      document.getElementById('taskDate').value = getTodayStr();
+      document.getElementById('taskStructure').value = 'simple';
+      document.getElementById('subcaseNames').value = '';
+      toggleSubcases();
+    }
+    function closeTaskModal() {
+      const modal = document.getElementById('taskModal');
+      if(modal) modal.classList.remove('open');
+    }
+    function toggleSubcases() {
+      const isComplex = document.getElementById('taskStructure').value === 'complex';
+      const container = document.getElementById('subcasesContainer');
+      if(container) container.classList.toggle('hidden', !isComplex);
+    }
+
+    function saveTask() {
+      const name = document.getElementById('taskName').value.trim();
+      const type = document.getElementById('taskType').value;
+      const date = document.getElementById('taskDate').value;
+      const structure = document.getElementById('taskStructure').value;
+      const subcaseNames = document.getElementById('subcaseNames').value.trim();
+
+      if (!name) { alert('Veuillez entrer un nom de tâche'); return; }
+
+      let subcases = null;
+      if (structure === 'complex' && subcaseNames) {
+        subcases = subcaseNames.split(',').map(s => ({ name: s.trim(), done: false })).filter(s => s.name);
+      }
+
+      const generatedId = 'task_' + Date.now();
+      const taskData = {
+        name,
+        type,
+        date: date || null,
+        completed: false,
+        completedDate: null,
+        subcases,
+        createdAt: getTodayStr()
+      };
+
+      if (db) {
+        db.collection("tasks").doc(generatedId).set(taskData);
+      } else {
+        tasks.push({ id: generatedId, ...taskData });
+        localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+        renderTasks();
+      }
+      closeTaskModal();
+    }
+
+    // MÉTRIQUES ET GRAPHES
+    function addSleep() {
+      const bed = document.getElementById('bedTime').value;
+      const wake = document.getElementById('wakeTime').value;
+      if (!bed || !wake) { alert('Veuillez renseigner les deux horaires'); return; }
+      const duration = sleepDuration(bed, wake);
+      sleepData.push({ date: getTodayStr(), bed, wake, duration });
+      syncData("metrics", "sleep", sleepData);
+      updateSleepMetrics();
+      renderSleepChart();
+    }
+
+    function updateSleepMetrics() {
+      if (sleepData.length === 0) return;
+      const avgDur = sleepData.reduce((a,b) => a + b.duration, 0) / sleepData.length;
+      const avgBed = sleepData.reduce((a,b) => a + timeToMinutes(b.bed), 0) / sleepData.length;
+      const avgWake = sleepData.reduce((a,b) => a + timeToMinutes(b.wake), 0) / sleepData.length;
+      
+      const durEl = document.getElementById('avgSleepDuration');
+      const bedEl = document.getElementById('avgBedTime');
+      const wakeEl = document.getElementById('avgWakeTime');
+      if(durEl) durEl.textContent = avgDur.toFixed(1) + 'h';
+      if(bedEl) bedEl.textContent = minutesToTime(Math.round(avgBed));
+      if(wakeEl) wakeEl.textContent = minutesToTime(Math.round(avgWake));
+    }
+
+    function addNap() {
+      const start = document.getElementById('napStart').value;
+      const duration = parseInt(document.getElementById('napDuration').value);
+      if (!start || !duration) { alert('Veuillez renseigner l\'heure et la durée'); return; }
+      napData.push({ date: getTodayStr(), start, duration });
+      syncData("metrics", "naps", napData);
+      updateNapMetrics();
+      renderNapChart();
+    }
+
+    function updateNapMetrics() {
+      if (napData.length === 0) return;
+      const avg = napData.reduce((a,b) => a + b.duration, 0) / napData.length;
+      const napEl = document.getElementById('avgNapDuration');
+      if(napEl) napEl.textContent = Math.round(avg) + ' min';
+    }
+
+    function updateSportQuota() {
+      sportQuota = parseInt(document.getElementById('sportQuota').value) || 4;
+      localStorage.setItem('prod_sportQuota', String(sportQuota));
+      renderSportChart();
+    }
+    function logSport(done) {
+      sportData.push({ date: getTodayStr(), done });
+      syncData("metrics", "sport", sportData);
+      renderSportChart();
+    }
+
+    function destroyChart(key) {
+      if (chartInstances[key]) { chartInstances[key].destroy(); delete chartInstances[key]; }
+    }
+    function getChartColors() {
+      const isDark = document.documentElement.classList.contains('dark');
+      return {
+        text: isDark ? '#f1f5f9' : '#0f172a',
+        grid: isDark ? '#334155' : '#e2e8f0'
+      };
+    }
+
+    function renderSleepChart() {
+      destroyChart('sleep');
+      const canvas = document.getElementById('sleepChart');
+      if (!canvas || canvas.offsetParent === null) return; 
+      const ctx = canvas.getContext('2d');
+      const c = getChartColors();
+      const recent = sleepData.slice(-14);
+      chartInstances.sleep = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: recent.map(d => d.date.slice(5)),
+          datasets: [{ label: 'Durée (h)', data: recent.map(d => d.duration), backgroundColor: '#3b82f6', borderRadius: 4 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: c.text } } },
+          scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true } }
+        }
+      });
+    }
+
+    function renderNapChart() {
+      destroyChart('nap');
+      const canvas = document.getElementById('napChart');
+      if (!canvas || canvas.offsetParent === null) return;
+      const ctx = canvas.getContext('2d');
+      const c = getChartColors();
+      const recent = napData.slice(-14);
+      chartInstances.nap = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: recent.map(d => d.date.slice(5)),
+          datasets: [{ label: 'Durée sieste (min)', data: recent.map(d => d.duration), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.2)', fill: true, tension: 0.3, pointRadius: 4 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: c.text } } },
+          scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true } }
+        }
+      });
+    }
+
+    function renderSportChart() {
+      destroyChart('sport');
+      const canvas = document.getElementById('sportChart');
+      if (!canvas || canvas.offsetParent === null) return;
+      const ctx = canvas.getContext('2d');
+      const c = getChartColors();
+      const weekMap = {};
+      sportData.forEach(d => {
+        const w = getWeekStartStr(d.date);
+        if (!weekMap[w]) weekMap[w] = { done: 0, total: 0 };
+        weekMap[w].total++;
+        if (d.done) weekMap[w].done++;
+      });
+      const weeks = Object.keys(weekMap).sort().slice(-8);
+      chartInstances.sport = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: weeks.map(w => 'S' + getWeekNumber(w)),
+          datasets: [
+            { label: 'Faits', data: weeks.map(w => weekMap[w].done), backgroundColor: '#22c55e', borderRadius: 4 },
+            { label: 'Ratés', data: weeks.map(w => weekMap[w].total - weekMap[w].done), backgroundColor: '#ef4444', borderRadius: 4 },
+            { label: 'Taux %', data: weeks.map(w => weekMap[w].total > 0 ? Math.round((weekMap[w].done / Math.max(weekMap[w].total, sportQuota)) * 100) : 0), type: 'line', borderColor: '#3b82f6', yAxisID: 'y1', pointRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: c.text } } },
+          scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true, stacked: true }, y1: { position: 'right', ticks: { color: c.text }, grid: { display: false }, min: 0, max: 100 } }
+        }
+      });
+    }
+
+    function renderTaskChart() {
+      destroyChart('task');
+      const canvas = document.getElementById('taskChart');
+      if (!canvas || canvas.offsetParent === null) return;
+      const ctx = canvas.getContext('2d');
+      const c = getChartColors();
+      const dates = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(); d.setDate(d.getDate() - i);
+        dates.push(d.toISOString().split('T')[0]);
+      }
+      const taskNames = [...new Set(tasks.map(t => t.name))];
+      const datasets = taskNames.map(name => {
+        const task = tasks.find(t => t.name === name);
+        const color = TYPE_COLORS[task?.type || 'blue'];
+        const data = dates.map(date => {
+          const hist = taskHistory[date];
+          if (!hist) return 0;
+          const entry = Object.values(hist).find(h => h.name === name);
+          return entry ? entry.pct : 0;
+        });
+        return { label: name, data, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3, pointRadius: 3 };
+      });
+      chartInstances.task = new Chart(ctx, {
+        type: 'line',
+        data: { labels: dates.map(d => d.slice(5)), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: c.text }, position: 'bottom' } },
+          scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, min: 0, max: 100 } }
+        }
+      });
+    }
+
+    function initCharts() {
+      updateSleepMetrics();
+      updateNapMetrics();
+      renderSleepChart();
+      renderNapChart();
+      renderSportChart();
+      renderTaskChart();
+    }
+
+    function renderArchives() {
+      const period = document.getElementById('archivePeriod').value;
+      const today = getTodayStr();
+      let startDate, endDate;
+      if (period === 'week') { startDate = getWeekStartStr(today); endDate = today; }
+      else if (period === 'month') { startDate = getMonthStartStr(today); endDate = today; }
+      else {
+        const d = new Date(today); d.setMonth(d.getMonth() - 1);
+        startDate = d.toISOString().split('T')[0].slice(0,7) + '-01';
+        endDate = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+      }
+      const completedTasks = [];
+      Object.entries(taskHistory).forEach(([date, hist]) => {
+        if (date >= startDate && date <= endDate) {
+          Object.entries(hist).forEach(([taskId, entry]) => { if (entry.pct === 100) completedTasks.push({ date, ...entry }); });
+        }
+      });
+      const byType = { red: [], orange: [], yellow: [], green: [], blue: [] };
+      completedTasks.forEach(t => { if (byType[t.type]) byType[t.type].push(t); });
+      const container = document.getElementById('archiveContent');
+      if(!container) return;
+      let html = `<div class="mb-4"><strong>Période :</strong> ${formatDateFr(startDate)} → ${formatDateFr(endDate)}</div>`;
+      TYPE_ORDER.forEach(type => {
+        const list = byType[type];
+        html += `<div class="card mb-3" style="border-left:4px solid ${TYPE_COLORS[type]}"><h4 class="font-bold mb-2">${TYPE_LABELS[type]} (${list.length})</h4>`;
+        if (list.length === 0) html += '<p style="color:var(--muted)" class="text-sm">Aucune tâche accomplie</p>';
+        else { html += '<ul class="space-y-1">'; list.forEach(t => { html += `<li class="text-sm">✅ <strong>${t.name}</strong> — ${formatDateFr(t.date)}</li>`; }); html += '</ul>'; }
+        html += '</div>';
+      });
+      container.innerHTML = html;
+    }
+
+    function exportPDF() {
+      const period = document.getElementById('archivePeriod').value;
+      const today = getTodayStr();
+      let startDate, endDate;
+      if (period === 'week') { startDate = getWeekStartStr(today); endDate = today; }
+      else if (period === 'month') { startDate = getMonthStartStr(today); endDate = today; }
+      else {
+        const d = new Date(today); d.setMonth(d.getMonth()-1);
+        startDate = d.toISOString().split('T')[0].slice(0,7)+'-01';
+        endDate = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+      }
+      const pdfZone = document.getElementById('pdfExportZone');
+      document.getElementById('pdfDateRange').textContent = `${formatDateFr(startDate)} — ${formatDateFr(endDate)}`;
+      const chartsArea = document.getElementById('pdfChartsArea');
+      chartsArea.innerHTML = `
+        <div style="margin-bottom:1.5rem;">
+          <h2 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Métriques</h2>
+          <p>Moy. Sommeil : ${document.getElementById('avgSleepDuration').textContent}</p>
+          <p>Moy. Sieste : ${document.getElementById('avgNapDuration').textContent}</p>
+        </div>
+      `;
+      ['sleepChart','napChart','sportChart','taskChart'].forEach(id => {
+        const canvas = document.getElementById(id);
+        if (canvas) {
+          const img = document.createElement('img');
+          img.src = canvas.toDataURL('image/png');
+          img.style.width = '100%';
+          img.style.marginBottom = '1.5rem';
+          chartsArea.appendChild(img);
+        }
+      });
+      html2pdf().set({ margin: 10, filename: `Rapport_${startDate}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } }).from(pdfZone).save();
+    }
+
+    function dailyCheck() {
+      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+      const yestStr = yesterday.toISOString().split('T')[0];
+      if (!taskHistory[yestStr]) {
+        const yestTasks = getTasksForDate(yestStr);
+        if (yestTasks.length > 0) {
+          taskHistory[yestStr] = {};
+          yestTasks.forEach(t => {
+            const total = t.subcases ? t.subcases.length : 1;
+            const done = t.subcases ? t.subcases.filter(s => s.done).length : (t.completed ? 1 : 0);
+            taskHistory[yestStr][t.id] = { name: t.name, type: t.type, total, done, pct: Math.round((done/total)*100) };
+          });
+          if (db) db.collection("metrics").doc("history").set({ history: taskHistory });
+        }
+      }
+    }
+
+    function syncData(collectionName, docId, localDataObj) {
+      if (db) {
+        db.collection(collectionName).doc(docId).set({ list: localDataObj });
+      } else {
+        localStorage.setItem('prod_' + docId, JSON.stringify(localDataObj));
+      }
+    }
+
+    function loadData() {
+      if (db) {
+        db.collection("tasks").onSnapshot((snapshot) => {
+          tasks = [];
+          snapshot.forEach(doc => { tasks.push({ id: doc.id, ...doc.data() }); });
+          updateStreaks();
+          renderTasks();
+          if (!document.getElementById('tab-dashboard').classList.contains('hidden')) {
+            initCharts();
+          }
+        });
+        db.collection("metrics").doc("sleep").get().then(doc => { if(doc.exists) { sleepData = doc.data().list || []; updateSleepMetrics(); } });
+        db.collection("metrics").doc("naps").get().then(doc => { if(doc.exists) { napData = doc.data().list || []; updateNapMetrics(); } });
+        db.collection("metrics").doc("sport").get().then(doc => { if(doc.exists) { sportData = doc.data().list || []; } });
+        db.collection("metrics").doc("history").get().then(doc => { if(doc.exists) { taskHistory = doc.data().history || {}; } });
+      } else {
+        try {
+          const t = localStorage.getItem('prod_tasks');
+          const s = localStorage.getItem('prod_sleep');
+          const n = localStorage.getItem('prod_naps');
+          const sp = localStorage.getItem('prod_sport');
+          const sq = localStorage.getItem('prod_sportQuota');
+          const th = localStorage.getItem('prod_taskHistory');
+          const st = localStorage.getItem('prod_streaks');
+          if (t) tasks = JSON.parse(t);
+          if (s) sleepData = JSON.parse(s);
+          if (n) napData = JSON.parse(n);
+          if (sp) sportData = JSON.parse(sp);
+          if (sq) sportQuota = parseInt(sq);
+          if (th) taskHistory = JSON.parse(th);
+          if (st) streaks = JSON.parse(st);
+        } catch(e) { console.error(e); }
+      }
+    }
+
+    function seedDemoData() {
+      if (tasks.length > 0) return;
+      const today = getTodayStr();
+      tasks = [
+        { id: 't1', name: 'RDV Client - Cabinet Vétérinaire', type: 'red', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
+        { id: 't3', name: 'Séance Calisthénie (Ian Barseagle)', type: 'yellow', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
+        { id: 't4', name: 'Prières à la Mosquée', type: 'green', date: null, completed: false, completedDate: null, subcases: [{ name: 'Sobh', done: false }, { name: 'Dohr', done: false }, { name: 'Asr', done: false }, { name: 'Maghreb', done: false }, { name: 'Icha', done: false }], createdAt: today }
+      ];
+      if (!db) localStorage.setItem('prod_tasks', JSON.stringify(tasks));
+    }
+
+    function initTheme() {
+      const saved = localStorage.getItem('prod_theme');
+      if (saved === 'dark') document.documentElement.classList.add('dark');
+      updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+      const icon = document.getElementById('themeIcon');
+      if(icon) icon.textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
+    }
+
+    // INITIALISATION FINALE AU CHARGEMENT DE LA PAGE
+    window.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      seedDemoData();
+      initTheme();
+      renderTasks();
+      dailyCheck();
+      
+      const themeToggle = document.getElementById('themeToggle');
+      if(themeToggle) {
+        themeToggle.addEventListener('click', () => {
+          document.documentElement.classList.toggle('dark');
+          localStorage.setItem('prod_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+          updateThemeIcon();
+          if (!document.getElementById('tab-dashboard').classList.contains('hidden')) initCharts();
+          renderTasks();
+        });
+      }
+
+      setInterval(dailyCheck, 60000);
+    });
+  </script>
 </head>
 <body class="min-h-screen">
 
@@ -256,692 +937,5 @@
   </div>
 </div>
 
-<script>
-// ============================================================
-// CONFIGURATION DE TA BASE DE DONNÉES FIREBASE
-// ============================================================
-// Remplace les valeurs ci-dessous par tes propres clés Firebase obtenues sur ta console Firebase
-const firebaseConfig = {
-  apiKey: "VOTRE_API_KEY",
-  authDomain: "VOTRE_AUTH_DOMAIN",
-  projectId: "VOTRE_PROJECT_ID",
-  storageBucket: "VOTRE_STORAGE_BUCKET",
-  messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
-  appId: "VOTRE_APP_ID"
-};
-
-// Initialisation de Firebase de façon sécurisée
-let db = null;
-try {
-  if (firebaseConfig.apiKey !== "VOTRE_API_KEY") {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    console.log("Firebase connecté avec succès !");
-  } else {
-    console.warn("Firebase fonctionne actuellement en mode LocalStorage (Clés manquantes).");
-  }
-} catch (e) {
-  console.error("Erreur d'initialisation Firebase: ", e);
-}
-
-// ============================================================
-// ÉTAT DE L'APPLICATION
-// ============================================================
-const TYPE_ORDER = ['red', 'orange', 'yellow', 'green', 'blue'];
-const TYPE_LABELS = { red: 'Unique/RDV', orange: 'Mensuelle', yellow: 'Hebdomadaire', green: 'Quotidienne', blue: 'Flottante' };
-const TYPE_COLORS = { red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#22c55e', blue: '#3b82f6' };
-const TYPE_CLASSES = { red: 'redTask', orange: 'orangeTask', yellow: 'yellowTask', green: 'greenTask', blue: 'blueTask' };
-const TYPE_BADGES = { red: 'badge-red', orange: 'badge-orange', yellow: 'badge-yellow', green: 'badge-green', blue: 'badge-blue' };
-
-let tasks = [];
-let sleepData = [];
-let napData = [];
-let sportData = [];
-let sportQuota = 4;
-let taskHistory = {};
-let streaks = { orange: 0, yellow: 0, green: 0 };
-let chartInstances = {};
-
-// ============================================================
-// UTILITAIRES DE DATE
-// ============================================================
-function getTodayStr() {
-  return new Date().toISOString().split('T')[0];
-}
-function getWeekStartStr(dateStr) {
-  const d = new Date(dateStr);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diff));
-  return monday.toISOString().split('T')[0];
-}
-function getMonthStartStr(dateStr) {
-  return dateStr.slice(0, 7) + '-01';
-}
-function getWeekNumber(dateStr) {
-  const d = new Date(dateStr);
-  d.setHours(0,0,0,0);
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-  const yearStart = new Date(d.getFullYear(),0,1);
-  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-function formatDateFr(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-}
-function timeToMinutes(timeStr) {
-  const [h,m] = timeStr.split(':').map(Number);
-  return h * 60 + m;
-}
-function minutesToTime(minutes) {
-  const h = Math.floor(minutes / 60) % 24;
-  const m = minutes % 60;
-  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
-}
-function sleepDuration(bed, wake) {
-  let bedM = timeToMinutes(bed);
-  let wakeM = timeToMinutes(wake);
-  if (wakeM < bedM) wakeM += 24 * 60;
-  return (wakeM - bedM) / 60;
-}
-
-// ============================================================
-// SYNCHRONISATION DES DONNÉES (Firebase / LocalStorage)
-// ============================================================
-function loadData() {
-  if (db) {
-    // Si Firebase est configuré, on écoute les tâches en temps réel
-    db.collection("tasks").onSnapshot((snapshot) => {
-      tasks = [];
-      snapshot.forEach(doc => {
-        tasks.push({ id: doc.id, ...doc.data() });
-      });
-      updateStreaks();
-      renderTasks();
-      if (document.getElementById('tab-dashboard').classList.contains('hidden') === false) {
-        initCharts();
-      }
-    });
-
-    // Charger le reste des collections une fois
-    db.collection("metrics").doc("sleep").get().then(doc => { if(doc.exists) { sleepData = doc.data().list || []; updateSleepMetrics(); } });
-    db.collection("metrics").doc("naps").get().then(doc => { if(doc.exists) { napData = doc.data().list || []; updateNapMetrics(); } });
-    db.collection("metrics").doc("sport").get().then(doc => { if(doc.exists) { sportData = doc.data().list || []; } });
-    db.collection("metrics").doc("history").get().then(doc => { if(doc.exists) { taskHistory = doc.data().history || []; } });
-  } else {
-    // Mode de secours LocalStorage
-    try {
-      const t = localStorage.getItem('prod_tasks');
-      const s = localStorage.getItem('prod_sleep');
-      const n = localStorage.getItem('prod_naps');
-      const sp = localStorage.getItem('prod_sport');
-      const sq = localStorage.getItem('prod_sportQuota');
-      const th = localStorage.getItem('prod_taskHistory');
-      const st = localStorage.getItem('prod_streaks');
-      if (t) tasks = JSON.parse(t);
-      if (s) sleepData = JSON.parse(s);
-      if (n) napData = JSON.parse(n);
-      if (sp) sportData = JSON.parse(sp);
-      if (sq) sportQuota = parseInt(sq);
-      if (th) taskHistory = JSON.parse(th);
-      if (st) streaks = JSON.parse(st);
-    } catch(e) { console.error(e); }
-  }
-}
-
-function syncData(collectionName, docId, localDataObj) {
-  if (db) {
-    db.collection(collectionName).doc(docId).set({ list: localDataObj });
-  } else {
-    localStorage.setItem('prod_' + docId, JSON.stringify(localDataObj));
-  }
-}
-
-// ============================================================
-// NAVIGATION ET THÈME
-// ============================================================
-function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  const targetBtn = document.querySelector(`[data-tab="${tab}"]`);
-  if (targetBtn) targetBtn.classList.add('active');
-  
-  ['tasks','dashboard','archives'].forEach(t => {
-    document.getElementById('tab-' + t).classList.add('hidden');
-  });
-  document.getElementById('tab-' + tab).classList.remove('hidden');
-  
-  if (tab === 'dashboard') setTimeout(initCharts, 50);
-  if (tab === 'archives') renderArchives();
-}
-
-function initTheme() {
-  const saved = localStorage.getItem('prod_theme');
-  if (saved === 'dark') document.documentElement.classList.add('dark');
-  updateThemeIcon();
-}
-
-function updateThemeIcon() {
-  document.getElementById('themeIcon').textContent = document.documentElement.classList.contains('dark') ? '☀️' : '🌙';
-}
-
-// ============================================================
-// GESTION DES TÂCHES
-// ============================================================
-function getTasksForDate(dateStr) {
-  const weekStart = getWeekStartStr(dateStr);
-  return tasks.filter(t => {
-    if (t.type === 'red') return t.date === dateStr;
-    if (t.type === 'orange') return t.date && t.date.slice(0,7) === dateStr.slice(0,7);
-    if (t.type === 'yellow') return t.date && getWeekStartStr(t.date) === weekStart;
-    if (t.type === 'green') return true;
-    if (t.type === 'blue') {
-      if (t.completed || (t.subcases && t.subcases.every(s => s.done))) {
-        return t.completedDate === dateStr;
-      }
-      return true;
-    }
-    return false;
-  }).map(t => ({ ...t }));
-}
-
-function renderTasks() {
-  const today = getTodayStr();
-  document.getElementById('currentDateDisplay').textContent = formatDateFr(today);
-  document.getElementById('weekInfo').textContent = 'Semaine ' + getWeekNumber(today);
-
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toISOString().split('T')[0];
-  const alerts = [];
-  
-  tasks.forEach(t => {
-    if (t.type === 'red' && t.date === tomorrowStr) alerts.push(`🔴 RDV demain : ${t.name}`);
-    if (t.type === 'orange' && t.date && t.date.slice(0,7) === tomorrowStr.slice(0,7)) alerts.push(`🟠 Tâche mensuelle : ${t.name}`);
-    if (t.type === 'yellow' && t.date && getWeekStartStr(t.date) === getWeekStartStr(tomorrowStr)) alerts.push(`🟡 Tâche hebdo : ${t.name}`);
-  });
-  
-  const alertBox = document.getElementById('alertBox');
-  if (alerts.length > 0) {
-    alertBox.innerHTML = '<strong>⚠️ Alertes pour demain :</strong><br>' + alerts.join('<br>');
-    alertBox.style.display = 'block';
-  } else {
-    alertBox.style.display = 'none';
-  }
-
-  const todayTasks = getTasksForDate(today);
-  const container = document.getElementById('taskList');
-  container.innerHTML = '';
-
-  if (todayTasks.length === 0) {
-    container.innerHTML = `<div class="card text-center" style="color:var(--muted)">Aucune tâche pour aujourd'hui. Ajoutez-en une !</div>`;
-    return;
-  }
-
-  const sorted = todayTasks.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
-
-  sorted.forEach(task => {
-    const isComplex = task.subcases && task.subcases.length > 0;
-    const totalSub = isComplex ? task.subcases.length : 1;
-    const doneSub = isComplex ? task.subcases.filter(s => s.done).length : (task.completed ? 1 : 0);
-    const pct = Math.round((doneSub / totalSub) * 100);
-
-    const el = document.createElement('div');
-    el.className = 'task-item';
-    el.style.borderLeft = '4px solid ' + TYPE_COLORS[task.type];
-
-    let subcasesHtml = '';
-    if (isComplex) {
-      subcasesHtml = '<div class="flex gap-2 flex-wrap mt-2">' +
-        task.subcases.map((sc, idx) => {
-          const cls = sc.done ? 'done ' + TYPE_CLASSES[task.type] : '';
-          return `<div class="subcase ${cls}" onclick="toggleSubcase('${task.id}', ${idx})">${sc.name}</div>`;
-        }).join('') +
-      '</div>';
-    }
-
-    let streakHtml = '';
-    if (['orange','yellow','green'].includes(task.type)) {
-      streakHtml = `<span class="streak"><span class="streak-fire">🔥</span> ${streaks[task.type] || 0}j</span>`;
-    }
-
-    el.innerHTML = `
-      <div class="checkbox-main ${task.completed && !isComplex ? 'done' : ''}" style="color:${TYPE_COLORS[task.type]}" onclick="toggleTask('${task.id}')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="font-semibold truncate">${task.name}</span>
-          <span class="badge ${TYPE_BADGES[task.type]}">${TYPE_LABELS[task.type]}</span>
-          ${task.date ? `<span class="text-xs" style="color:var(--muted)">${task.date}</span>` : ''}
-          ${streakHtml}
-        </div>
-        ${subcasesHtml}
-        ${isComplex ? `<div class="mt-2"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%; background:${TYPE_COLORS[task.type]}"></div></div><span class="text-xs" style="color:var(--muted)">${pct}%</span></div>` : ''}
-      </div>
-      <button class="text-sm" style="color:var(--muted); background:none; border:none; cursor:pointer;" onclick="deleteTask('${task.id}')" title="Supprimer">🗑️</button>
-    `;
-    container.appendChild(el);
-  });
-}
-
-function toggleTask(id) {
-  const task = tasks.find(t => t.id === id);
-  if (!task || (task.subcases && task.subcases.length > 0)) return;
-  task.completed = !task.completed;
-  task.completedDate = task.completed ? getTodayStr() : null;
-  
-  if (db) {
-    db.collection("tasks").doc(id).update({ completed: task.completed, completedDate: task.completedDate });
-  } else {
-    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
-    recordTaskHistory(task); updateStreaks(); renderTasks();
-  }
-}
-
-function toggleSubcase(taskId, subIdx) {
-  const task = tasks.find(t => t.id === taskId);
-  if (!task || !task.subcases) return;
-  task.subcases[subIdx].done = !task.subcases[subIdx].done;
-  const allDone = task.subcases.every(s => s.done);
-  task.completed = allDone;
-  task.completedDate = allDone ? getTodayStr() : null;
-
-  if (db) {
-    db.collection("tasks").doc(taskId).update({ subcases: task.subcases, completed: task.completed, completedDate: task.completedDate });
-  } else {
-    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
-    recordTaskHistory(task); updateStreaks(); renderTasks();
-  }
-}
-
-function recordTaskHistory(task) {
-  const today = getTodayStr();
-  if (!taskHistory[today]) taskHistory[today] = {};
-  const total = task.subcases ? task.subcases.length : 1;
-  const done = task.subcases ? task.subcases.filter(s => s.done).length : (task.completed ? 1 : 0);
-  taskHistory[today][task.id] = { name: task.name, type: task.type, total, done, pct: Math.round((done/total)*100) };
-  if (db) db.collection("metrics").doc("history").set({ history: taskHistory });
-  else localStorage.setItem('prod_taskHistory', JSON.stringify(taskHistory));
-}
-
-function updateStreaks() {
-  const today = getTodayStr();
-  ['orange', 'yellow', 'green'].forEach(type => {
-    const typeTasks = tasks.filter(t => t.type === type);
-    if (typeTasks.length === 0) { streaks[type] = 0; return; }
-    let streak = 0;
-    let checkDate = new Date(today);
-    while (true) {
-      const dateStr = checkDate.toISOString().split('T')[0];
-      const dayTasks = getTasksForDate(dateStr).filter(t => t.type === type);
-      if (dayTasks.length === 0) break;
-      const allDone = dayTasks.every(t => t.subcases ? t.subcases.every(s => s.done) : t.completed);
-      if (!allDone) break;
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    }
-    streaks[type] = streak;
-  });
-  localStorage.setItem('prod_streaks', JSON.stringify(streaks));
-}
-
-function deleteTask(id) {
-  if (!confirm('Supprimer cette tâche ?')) return;
-  if (db) {
-    db.collection("tasks").doc(id).delete();
-  } else {
-    tasks = tasks.filter(t => t.id !== id);
-    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
-    renderTasks();
-  }
-}
-
-function openTaskModal() {
-  document.getElementById('taskModal').classList.add('open');
-  document.getElementById('taskName').value = '';
-  document.getElementById('taskType').value = 'green';
-  document.getElementById('taskDate').value = getTodayStr();
-  document.getElementById('taskStructure').value = 'simple';
-  document.getElementById('subcaseNames').value = '';
-  toggleSubcases();
-}
-function closeTaskModal() {
-  document.getElementById('taskModal').classList.remove('open');
-}
-function toggleSubcases() {
-  const isComplex = document.getElementById('taskStructure').value === 'complex';
-  document.getElementById('subcasesContainer').classList.toggle('hidden', !isComplex);
-}
-
-function saveTask() {
-  const name = document.getElementById('taskName').value.trim();
-  const type = document.getElementById('taskType').value;
-  const date = document.getElementById('taskDate').value;
-  const structure = document.getElementById('taskStructure').value;
-  const subcaseNames = document.getElementById('subcaseNames').value.trim();
-
-  if (!name) { alert('Veuillez entrer un nom de tâche'); return; }
-
-  let subcases = null;
-  if (structure === 'complex' && subcaseNames) {
-    subcases = subcaseNames.split(',').map(s => ({ name: s.trim(), done: false })).filter(s => s.name);
-  }
-
-  const generatedId = 'task_' + Date.now();
-  const taskData = {
-    name,
-    type,
-    date: date || null,
-    completed: false,
-    completedDate: null,
-    subcases,
-    createdAt: getTodayStr()
-  };
-
-  if (db) {
-    db.collection("tasks").doc(generatedId).set(taskData);
-  } else {
-    tasks.push({ id: generatedId, ...taskData });
-    localStorage.setItem('prod_tasks', JSON.stringify(tasks));
-    renderTasks();
-  }
-  closeTaskModal();
-}
-
-// ============================================================
-// SUIVI MÉTRIQUES (SOMMEIL, SIÈSTE, SPORT)
-// ============================================================
-function addSleep() {
-  const bed = document.getElementById('bedTime').value;
-  const wake = document.getElementById('wakeTime').value;
-  if (!bed || !wake) { alert('Veuillez renseigner les deux horaires'); return; }
-  const duration = sleepDuration(bed, wake);
-  sleepData.push({ date: getTodayStr(), bed, wake, duration });
-  syncData("metrics", "sleep", sleepData);
-  updateSleepMetrics();
-  renderSleepChart();
-}
-
-function updateSleepMetrics() {
-  if (sleepData.length === 0) return;
-  const avgDur = sleepData.reduce((a,b) => a + b.duration, 0) / sleepData.length;
-  const avgBed = sleepData.reduce((a,b) => a + timeToMinutes(b.bed), 0) / sleepData.length;
-  const avgWake = sleepData.reduce((a,b) => a + timeToMinutes(b.wake), 0) / sleepData.length;
-  document.getElementById('avgSleepDuration').textContent = avgDur.toFixed(1) + 'h';
-  document.getElementById('avgBedTime').textContent = minutesToTime(Math.round(avgBed));
-  document.getElementById('avgWakeTime').textContent = minutesToTime(Math.round(avgWake));
-}
-
-function addNap() {
-  const start = document.getElementById('napStart').value;
-  const duration = parseInt(document.getElementById('napDuration').value);
-  if (!start || !duration) { alert('Veuillez renseigner l\'heure et la durée'); return; }
-  napData.push({ date: getTodayStr(), start, duration });
-  syncData("metrics", "naps", napData);
-  updateNapMetrics();
-  renderNapChart();
-}
-
-function updateNapMetrics() {
-  if (napData.length === 0) return;
-  const avg = napData.reduce((a,b) => a + b.duration, 0) / napData.length;
-  document.getElementById('avgNapDuration').textContent = Math.round(avg) + ' min';
-}
-
-function updateSportQuota() {
-  sportQuota = parseInt(document.getElementById('sportQuota').value) || 4;
-  localStorage.setItem('prod_sportQuota', String(sportQuota));
-  renderSportChart();
-}
-function logSport(done) {
-  sportData.push({ date: getTodayStr(), done });
-  syncData("metrics", "sport", sportData);
-  renderSportChart();
-}
-
-// ============================================================
-// CONSTRUIRE LES GRAPHIQUES (CHART.JS)
-// ============================================================
-function destroyChart(key) {
-  if (chartInstances[key]) { chartInstances[key].destroy(); delete chartInstances[key]; }
-}
-function getChartColors() {
-  const isDark = document.documentElement.classList.contains('dark');
-  return {
-    text: isDark ? '#f1f5f9' : '#0f172a',
-    grid: isDark ? '#334155' : '#e2e8f0'
-  };
-}
-function renderSleepChart() {
-  destroyChart('sleep');
-  const canvas = document.getElementById('sleepChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const c = getChartColors();
-  const recent = sleepData.slice(-14);
-  chartInstances.sleep = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: recent.map(d => d.date.slice(5)),
-      datasets: [{ label: 'Durée (h)', data: recent.map(d => d.duration), backgroundColor: '#3b82f6', borderRadius: 4 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: c.text } } },
-      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true } }
-    }
-  });
-}
-function renderNapChart() {
-  destroyChart('nap');
-  const canvas = document.getElementById('napChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const c = getChartColors();
-  const recent = napData.slice(-14);
-  chartInstances.nap = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: recent.map(d => d.date.slice(5)),
-      datasets: [{ label: 'Durée sieste (min)', data: recent.map(d => d.duration), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.2)', fill: true, tension: 0.3, pointRadius: 4 }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: c.text } } },
-      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true } }
-    }
-  });
-}
-function renderSportChart() {
-  destroyChart('sport');
-  const canvas = document.getElementById('sportChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const c = getChartColors();
-  const weekMap = {};
-  sportData.forEach(d => {
-    const w = getWeekStartStr(d.date);
-    if (!weekMap[w]) weekMap[w] = { done: 0, total: 0 };
-    weekMap[w].total++;
-    if (d.done) weekMap[w].done++;
-  });
-  const weeks = Object.keys(weekMap).sort().slice(-8);
-  chartInstances.sport = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: weeks.map(w => 'S' + getWeekNumber(w)),
-      datasets: [
-        { label: 'Faits', data: weeks.map(w => weekMap[w].done), backgroundColor: '#22c55e', borderRadius: 4 },
-        { label: 'Ratés', data: weeks.map(w => weekMap[w].total - weekMap[w].done), backgroundColor: '#ef4444', borderRadius: 4 },
-        { label: 'Taux %', data: weeks.map(w => weekMap[w].total > 0 ? Math.round((weekMap[w].done / Math.max(weekMap[w].total, sportQuota)) * 100) : 0), type: 'line', borderColor: '#3b82f6', yAxisID: 'y1', pointRadius: 4 }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: c.text } } },
-      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, beginAtZero: true, stacked: true }, y1: { position: 'right', ticks: { color: c.text }, grid: { display: false }, min: 0, max: 100 } }
-    }
-  });
-}
-function renderTaskChart() {
-  destroyChart('task');
-  const canvas = document.getElementById('taskChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const c = getChartColors();
-  const dates = [];
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().split('T')[0]);
-  }
-  const taskNames = [...new Set(tasks.map(t => t.name))];
-  const datasets = taskNames.map(name => {
-    const task = tasks.find(t => t.name === name);
-    const color = TYPE_COLORS[task?.type || 'blue'];
-    const data = dates.map(date => {
-      const hist = taskHistory[date];
-      if (!hist) return 0;
-      const entry = Object.values(hist).find(h => h.name === name);
-      return entry ? entry.pct : 0;
-    });
-    return { label: name, data, borderColor: color, backgroundColor: color + '20', fill: false, tension: 0.3, pointRadius: 3 };
-  });
-  chartInstances.task = new Chart(ctx, {
-    type: 'line',
-    data: { labels: dates.map(d => d.slice(5)), datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: c.text }, position: 'bottom' } },
-      scales: { x: { ticks: { color: c.text }, grid: { color: c.grid } }, y: { ticks: { color: c.text }, grid: { color: c.grid }, min: 0, max: 100 } }
-    }
-  });
-}
-function initCharts() {
-  updateSleepMetrics();
-  updateNapMetrics();
-  renderSleepChart();
-  renderNapChart();
-  renderSportChart();
-  renderTaskChart();
-}
-
-// ============================================================
-// ARCHIVES & RAPPORTS PDF
-// ============================================================
-function renderArchives() {
-  const period = document.getElementById('archivePeriod').value;
-  const today = getTodayStr();
-  let startDate, endDate;
-  if (period === 'week') { startDate = getWeekStartStr(today); endDate = today; }
-  else if (period === 'month') { startDate = getMonthStartStr(today); endDate = today; }
-  else {
-    const d = new Date(today); d.setMonth(d.getMonth() - 1);
-    startDate = d.toISOString().split('T')[0].slice(0,7) + '-01';
-    endDate = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
-  }
-  const completedTasks = [];
-  Object.entries(taskHistory).forEach(([date, hist]) => {
-    if (date >= startDate && date <= endDate) {
-      Object.entries(hist).forEach(([taskId, entry]) => { if (entry.pct === 100) completedTasks.push({ date, ...entry }); });
-    }
-  });
-  const byType = { red: [], orange: [], yellow: [], green: [], blue: [] };
-  completedTasks.forEach(t => { if (byType[t.type]) byType[t.type].push(t); });
-  const container = document.getElementById('archiveContent');
-  let html = `<div class="mb-4"><strong>Période :</strong> ${formatDateFr(startDate)} → ${formatDateFr(endDate)}</div>`;
-  TYPE_ORDER.forEach(type => {
-    const list = byType[type];
-    html += `<div class="card mb-3" style="border-left:4px solid ${TYPE_COLORS[type]}"><h4 class="font-bold mb-2">${TYPE_LABELS[type]} (${list.length})</h4>`;
-    if (list.length === 0) html += '<p style="color:var(--muted)" class="text-sm">Aucune tâche accomplie</p>';
-    else { html += '<ul class="space-y-1">'; list.forEach(t => { html += `<li class="text-sm">✅ <strong>${t.name}</strong> — ${formatDateFr(t.date)}</li>`; }); html += '</ul>'; }
-    html += '</div>';
-  });
-  container.innerHTML = html;
-}
-
-function exportPDF() {
-  const period = document.getElementById('archivePeriod').value;
-  const today = getTodayStr();
-  let startDate, endDate;
-  if (period === 'week') { startDate = getWeekStartStr(today); endDate = today; }
-  else if (period === 'month') { startDate = getMonthStartStr(today); endDate = today; }
-  else {
-    const d = new Date(today); d.setMonth(d.getMonth()-1);
-    startDate = d.toISOString().split('T')[0].slice(0,7)+'-01';
-    endDate = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
-  }
-  const pdfZone = document.getElementById('pdfExportZone');
-  document.getElementById('pdfDateRange').textContent = `${formatDateFr(startDate)} — ${formatDateFr(endDate)}`;
-  const chartsArea = document.getElementById('pdfChartsArea');
-  chartsArea.innerHTML = `
-    <div style="margin-bottom:1.5rem;">
-      <h2 style="font-size:1.1rem; font-weight:bold; margin-bottom:0.5rem;">Métriques</h2>
-      <p>Moy. Sommeil : ${document.getElementById('avgSleepDuration').textContent}</p>
-      <p>Moy. Sieste : ${document.getElementById('avgNapDuration').textContent}</p>
-    </div>
-  `;
-  ['sleepChart','napChart','sportChart','taskChart'].forEach(id => {
-    const canvas = document.getElementById(id);
-    if (canvas) {
-      const img = document.createElement('img');
-      img.src = canvas.toDataURL('image/png');
-      img.style.width = '100%';
-      img.style.marginBottom = '1.5rem';
-      chartsArea.appendChild(img);
-    }
-  });
-  html2pdf().set({ margin: 10, filename: `Rapport_${startDate}.pdf`, html2canvas: { scale: 2, useCORS: true }, jsPDF: { format: 'a4', orientation: 'portrait' } }).from(pdfZone).save();
-}
-
-function dailyCheck() {
-  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-  const yestStr = yesterday.toISOString().split('T')[0];
-  if (!taskHistory[yestStr]) {
-    const yestTasks = getTasksForDate(yestStr);
-    if (yestTasks.length > 0) {
-      taskHistory[yestStr] = {};
-      yestTasks.forEach(t => {
-        const total = t.subcases ? t.subcases.length : 1;
-        const done = t.subcases ? t.subcases.filter(s => s.done).length : (t.completed ? 1 : 0);
-        taskHistory[yestStr][t.id] = { name: t.name, type: t.type, total, done, pct: Math.round((done/total)*100) };
-      });
-      if (db) db.collection("metrics").doc("history").set({ history: taskHistory });
-    }
-  }
-}
-
-function seedDemoData() {
-  if (tasks.length > 0) return;
-  const today = getTodayStr();
-  tasks = [
-    { id: 't1', name: 'RDV Client - Cabinet Vétérinaire', type: 'red', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
-    { id: 't3', name: 'Séance Calisthénie (Ian Barseagle)', type: 'yellow', date: today, completed: false, completedDate: null, subcases: null, createdAt: today },
-    { id: 't4', name: 'Prières à la Mosquée', type: 'green', date: null, completed: false, completedDate: null, subcases: [{ name: 'Sobh', done: false }, { name: 'Dohr', done: false }, { name: 'Asr', done: false }, { name: 'Maghreb', done: false }, { name: 'Icha', done: false }], createdAt: today }
-  ];
-  if (!db) localStorage.setItem('prod_tasks', JSON.stringify(tasks));
-}
-
-// ============================================================
-// INITIALISATION FINALE
-// ============================================================
-window.addEventListener('DOMContentLoaded', () => {
-  loadData();
-  seedDemoData();
-  initTheme();
-  renderTasks();
-  dailyCheck();
-  
-  document.getElementById('themeToggle').addEventListener('click', () => {
-    document.documentElement.classList.toggle('dark');
-    localStorage.setItem('prod_theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    updateThemeIcon();
-    initCharts();
-    renderTasks();
-  });
-
-  setInterval(dailyCheck, 60000);
-});
-</script>
 </body>
 </html>
